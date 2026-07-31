@@ -1,6 +1,6 @@
 ---
 name: test-suite-doctor
-description: Audit and shrink bloated JavaScript/TypeScript test suites (Vitest or Jest) without losing real quality. Use when the user wants to reduce or minimize a test suite, clean up AI-slop or duplicate tests, audit test quality, prune redundant tests, or verify a reduced suite against coverage and mutation-score baselines. Metrics-driven — bundled scripts measure per-test coverage and runtime and compute the keep/drop plan; never prune tests by gut feeling.
+description: Audit and shrink bloated JavaScript/TypeScript test suites (Vitest or Jest) without losing real quality. Use when the user wants to reduce or minimize a test suite, clean up AI-slop or duplicate tests, audit test quality, prune redundant tests, or verify a reduced suite against coverage and mutation-score baselines. Metrics-driven — the bundled CLI measures per-test coverage and runtime and computes the keep/drop plan; never prune tests by gut feeling.
 ---
 
 # test-suite-doctor
@@ -105,7 +105,7 @@ tests within them die (test granularity).
 ### 4. REGENERATE (judgment — yours)
 
 Run verify once (expect it may fail) to get the coverage-gap report, then write
-new tests for the worst-hit source files listed by `verify.ts`, following
+new tests for the worst-hit source files listed by `verify`, following
 `references/quality-rules.md`: AAA structure, behavior-driven names, one
 behavior per test, mocks only at external boundaries. Prefer one strong test
 covering a real user-visible behavior over three shallow ones.
@@ -139,7 +139,7 @@ to `plan.md` for the full audit trail.
 
 ## Failure modes
 
-- **Runner not detected / ambiguous** → scripts exit 2 with guidance; pass
+- **Runner not detected / ambiguous** → the CLI exits 2 with guidance; pass
   `--runner` or `--cwd` (monorepos: run per package).
 - **Incomplete collection** → fix the isolated failures. Do not filter them
   away merely to make a plan pass; a filter changes the declared baseline

@@ -74,11 +74,7 @@ function install(target: BenchmarkTarget, checkout: string): void {
     run("corepack", [`pnpm@${version}`, "install", "--frozen-lockfile", "--ignore-scripts"], checkout);
     return;
   }
-  const currentVersion = run("npm", ["--version"], checkout);
-  if (currentVersion !== version) {
-    throw new Error(`${target.id} requires ${target.packageManager}; current npm is ${currentVersion}`);
-  }
-  run("npm", ["ci", "--ignore-scripts"], checkout);
+  run("pnpm", ["dlx", `npm@${version}`, "ci", "--ignore-scripts"], checkout);
 }
 
 function benchmark(target: BenchmarkTarget, outRoot: string): Record<string, unknown> {
@@ -160,7 +156,7 @@ if (values.validate) {
     ? manifest.targets
     : manifest.targets.filter((target) => target.id === values.target || target.size === values.target);
   if (selected.length === 0) fail("pass --target <id|small|medium|large|all>");
-  if (!readFileSync(cli, "utf8").startsWith("#!/usr/bin/env node")) fail("run npm run build first");
+  if (!readFileSync(cli, "utf8").startsWith("#!/usr/bin/env node")) fail("run pnpm run build first");
   const out = resolve(values.out!);
   mkdirSync(out, { recursive: true });
   const results = selected.map((target) => benchmark(target, out));

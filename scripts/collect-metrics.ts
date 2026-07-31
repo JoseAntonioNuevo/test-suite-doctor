@@ -1,4 +1,4 @@
-#!/usr/bin/env -S npx tsx
+#!/usr/bin/env -S pnpm exec tsx
 export { collectCommand } from "./commands/collect.ts";
 import { collectCommand } from "./commands/collect.ts";
 

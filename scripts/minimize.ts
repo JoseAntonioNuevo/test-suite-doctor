@@ -1,4 +1,4 @@
-#!/usr/bin/env -S npx tsx
+#!/usr/bin/env -S pnpm exec tsx
 export { minimizeCommand } from "./commands/minimize.ts";
 import { minimizeCommand } from "./commands/minimize.ts";
 

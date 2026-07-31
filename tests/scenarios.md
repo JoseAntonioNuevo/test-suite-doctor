@@ -66,7 +66,7 @@ plan as suspect for those files, rather than deleting them as "0 coverage".
 
 ## Script-level regression cases
 
-Covered by the unit tests in this directory (`npm test`): greedy ordering,
+Covered by the unit tests in this directory (`pnpm test`): greedy ordering,
 floor semantics, force-keep, strict count, runtime budget, determinism,
 baseline-universe clamping, runner detection matrix, retention math, mutation
 score formula.

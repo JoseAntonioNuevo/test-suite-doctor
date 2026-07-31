@@ -19,10 +19,9 @@ export function run(
   args: string[],
   opts: { cwd: string; timeoutMs: number; env?: Record<string, string> },
 ): Promise<ExecResult> {
-  const bin = process.platform === "win32" && cmd === "npx" ? "npx.cmd" : cmd;
   return new Promise((resolve) => {
     const started = Date.now();
-    const child = spawn(bin, args, {
+    const child = spawn(cmd, args, {
       cwd: opts.cwd,
       env: { ...process.env, CI: "true", ...opts.env },
       stdio: ["ignore", "pipe", "pipe"],

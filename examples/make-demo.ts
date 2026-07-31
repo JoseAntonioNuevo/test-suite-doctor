@@ -1,11 +1,11 @@
-#!/usr/bin/env -S npx tsx
+#!/usr/bin/env -S pnpm exec tsx
 /**
  * Regenerates examples/demo-report.json — a synthetic metrics report modeling
  * a small slop-heavy suite (duplicates, mock-the-mock, a hollow snapshot, a
  * regression test guarding two rare lines). Lets anyone try minimize.ts
  * without a target repo:
  *
- *   npx tsx examples/make-demo.ts
+ *   pnpm exec tsx examples/make-demo.ts
  *   node dist/cli.mjs minimize --report examples/demo-report.json \
  *     --out-plan examples/demo-plan.json --out-md examples/demo-plan.md \
  *     --coverage-floor 0.97 --keep regression

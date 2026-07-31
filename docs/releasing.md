@@ -1,8 +1,8 @@
 # Release runbook
 
-The repository workflows build and test releases, but two GitHub/npm controls
-must be configured by a repository or npm administrator. They are intentionally
-not mutated by local scripts.
+The repository workflows build and test releases, but two GitHub/registry
+controls must be configured by a repository or registry administrator. They
+are intentionally not mutated by local scripts.
 
 ## Repository controls
 
@@ -14,18 +14,18 @@ not mutated by local scripts.
 3. Require the CI jobs named `quality`, `runner-integration`, `dogfood`,
    `package-smoke`, `mutation-smoke`, `workflow-security`, and `benchmark`.
 
-## One-time npm bootstrap for v0.3
+## One-time registry bootstrap for v0.3
 
 Immediately before bootstrap, check the package name with
-`npm view test-suite-doctor`. If it is unavailable, change `package.json` to
+`pnpm view test-suite-doctor`. If it is unavailable, change `package.json` to
 `@joseantonionuevo/test-suite-doctor`; retain the `test-suite-doctor` binary.
 
 1. On a protected release candidate commit, set the version to `0.3.0-rc.0`.
 2. Create a manually dispatched workflow restricted to the `release`
    environment. It must run the full release gates, pack once, and publish the
    exact tested tarball under `next` using a short-lived granular token:
-   `npm publish "$TARBALL" --tag next --access public`.
-3. Configure npm trusted publishing for exactly
+   `pnpm publish "$TARBALL" --tag next --access public`.
+3. Configure registry trusted publishing for exactly
    `JoseAntonioNuevo/test-suite-doctor`, workflow `release.yml`, environment
    `release`.
 4. Revoke the granular token and delete or disable the bootstrap workflow
@@ -41,11 +41,11 @@ Update `package.json` and the bundled tool version together, rebuild
 equal the package version. `release.yml` then:
 
 - reruns all tests and pinned external benchmarks from clean checkouts;
-- uses GitHub-hosted Node 24 and npm 11.5.1;
+- uses GitHub-hosted Node 24 and pnpm 11.18.0;
 - packs once, writes SHA-256 and CycloneDX SBOM files, and publishes that exact
-  tarball using OIDC provenance and no npm token;
-- skips npm publication when the version already exists; and
+  tarball using OIDC provenance and no registry token;
+- skips registry publication when the version already exists; and
 - creates or updates the GitHub release and attaches the same tarball,
   checksum, and SBOM idempotently.
 
-Do not recreate an npm token path after trusted publishing is enabled.
+Do not recreate a registry-token path after trusted publishing is enabled.

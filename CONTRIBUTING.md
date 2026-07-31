@@ -12,19 +12,23 @@ contributions are especially welcome:
 ```bash
 git clone https://github.com/JoseAntonioNuevo/test-suite-doctor.git
 cd test-suite-doctor
-npm ci
-npm test          # vitest self-tests
-npm run typecheck # tsc --noEmit
+pnpm install --frozen-lockfile
+pnpm test          # Vitest self-tests
+pnpm run typecheck # tsc --noEmit
+pnpm run build     # rebuild the committed CLI
 ```
 
-Both must be green before opening a PR — CI runs exactly these two commands.
+All checks must be green before opening a PR. After building, also run
+`git diff --exit-code -- dist/cli.mjs` to catch committed bundle drift.
 
 ## Ground rules
 
+- **pnpm only.** Use the exact version pinned by `packageManager`; do not add a
+  second lockfile or document commands for another package-manager CLI.
 - **Scripts stay dependency-light.** `scripts/` imports Node.js builtins only
-  (`node:fs`, `node:path`, `node:child_process`, `node:util`…). No runtime npm
-  dependencies — the scripts must run in any repo via `npx tsx` without an
-  install step. Dev dependencies (vitest, typescript, tsx) are fine.
+  (`node:fs`, `node:path`, `node:child_process`, `node:util`…). The committed
+  `dist/cli.mjs` must run with Node alone and have no production dependencies.
+  Development dependencies such as Vitest, TypeScript, and tsx are fine.
 - **Scripts stay tool-agnostic.** Nothing in `scripts/` or the core `SKILL.md`
   workflow may require a specific agent product. Any human with a shell must
   be able to run every step.
@@ -59,5 +63,7 @@ can discuss the mapping.
 
 ## Releases
 
-Semver tags (`v0.x.y`). The skill is consumed by `git clone`, so `main` stays
-releasable at all times.
+Semver tags (`v0.x.y`). The skill is consumed by Git clone and the CLI is
+distributed through the package registry, so `main` stays releasable at all
+times. Follow [`docs/releasing.md`](docs/releasing.md); the exact tarball that
+passes package smoke tests is the one published and attached to the release.

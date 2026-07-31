@@ -11,7 +11,7 @@ import {
 const root = resolve(import.meta.dirname, "..");
 
 describe("target-local runner resolution", () => {
-  it("resolves Vitest from the target package without npx", () => {
+  it("resolves Vitest from the target package without an implicit download", () => {
     const binary = resolveTargetBinary(root, "vitest");
     expect(binary.command).toBe(process.execPath);
     expect(binary.argsPrefix[0]).toMatch(/vitest\.mjs$/);

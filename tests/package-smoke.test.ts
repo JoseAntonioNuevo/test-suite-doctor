@@ -1,13 +1,13 @@
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, join, resolve } from "node:path";
+import { basename, isAbsolute, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
-import { spawnNpm } from "./helpers/npm.ts";
+import { spawnPnpm } from "./helpers/pnpm.ts";
 
 const root = resolve(import.meta.dirname, "..");
 
-describe("npm package smoke", () => {
+describe("package smoke", () => {
   it("packs only the public skill/CLI surface and runs in a clean consumer", () => {
     const output = mkdtempSync(join(tmpdir(), "doctor-pack-"));
     const consumer = mkdtempSync(join(tmpdir(), "doctor-consumer-"));
@@ -21,11 +21,16 @@ describe("npm package smoke", () => {
         expect(listed.status, listed.stderr).toBe(0);
         paths = listed.stdout.split(/\r?\n/).map((path) => path.replace(/^package\//, ""));
       } else {
-        const packed = spawnNpm(["pack", "--json", "--pack-destination", output], root);
+        const packed = spawnPnpm(
+          ["--config.ignore-scripts=true", "pack", "--json", "--pack-destination", output],
+          root,
+        );
         expect(packed.status, packed.stderr).toBe(0);
-        const metadata = JSON.parse(packed.stdout)[0];
+        const metadata = JSON.parse(packed.stdout);
         paths = metadata.files.map((file: { path: string }) => file.path);
-        tarball = join(output, metadata.filename);
+        tarball = isAbsolute(metadata.filename)
+          ? metadata.filename
+          : join(output, metadata.filename);
       }
       expect(paths).toContain("dist/cli.mjs");
       expect(paths).toContain("SKILL.md");
@@ -33,13 +38,13 @@ describe("npm package smoke", () => {
       expect(paths.some((path: string) => /^(tests|tools|scripts|examples)\//.test(path))).toBe(false);
 
       writeFileSync(join(consumer, "package.json"), JSON.stringify({ private: true }));
-      const installed = spawnNpm(
-        ["install", "--ignore-scripts", "--omit=dev", "--offline", tarball],
+      const installed = spawnPnpm(
+        ["add", "--ignore-scripts", "--prod", "--offline", tarball],
         consumer,
       );
-      expect(installed.status, installed.stderr).toBe(0);
-      const version = spawnNpm(
-        ["exec", "--offline", "--", "test-suite-doctor", "--version"],
+      expect(installed.status, `${installed.stderr}\n${installed.stdout}`).toBe(0);
+      const version = spawnPnpm(
+        ["exec", "test-suite-doctor", "--version"],
         consumer,
       );
       expect(version.status, version.stderr).toBe(0);

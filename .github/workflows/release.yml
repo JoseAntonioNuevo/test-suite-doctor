@@ -20,12 +20,14 @@ jobs:
       - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
         with:
           persist-credentials: false
+      - uses: pnpm/action-setup@008330803749db0355799c700092d9a85fd074e9 # v6.0.9
+        with:
+          version: 11.18.0
       - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
           node-version: 24
-      - run: npm install --global npm@11.5.1
-      - run: npm ci
-      - run: npm run build
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
       - name: Reproduce all pinned benchmarks, including Remeda
         run: node --import tsx tools/run-benchmarks.ts --target all --out benchmark-results
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -43,46 +45,49 @@ jobs:
     environment: release
     permissions:
       contents: write # create the GitHub release and attach exact artifacts
-      id-token: write # npm trusted publishing provenance
+      id-token: write # registry trusted publishing provenance
     steps:
       - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
         with:
           persist-credentials: false
+      - uses: pnpm/action-setup@008330803749db0355799c700092d9a85fd074e9 # v6.0.9
+        with:
+          version: 11.18.0
       - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
           node-version: 24
-      - run: npm install --global npm@11.5.1
-      - run: npm ci
-      - run: npm run build && git diff --exit-code -- dist/cli.mjs
+          registry-url: https://registry.npmjs.org
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build && git diff --exit-code -- dist/cli.mjs
       - name: Validate tag and package version
         run: |
           node -e "const p=require('./package.json'); const tag=process.env.GITHUB_REF_NAME; if(!/^v[0-9]+\.[0-9]+\.[0-9]+$/.test(tag) || tag !== 'v'+p.version) process.exit(1)"
       - name: Pack the tested artifact once
         id: pack
         run: |
-          TARBALL=$(npm pack --json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s)[0].filename))")
+          TARBALL=$(pnpm --config.ignore-scripts=true pack --json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).filename))")
           echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
-      - run: npm run typecheck
+      - run: pnpm run typecheck
       - name: Test the exact tarball selected for publication
         env:
           TEST_SUITE_DOCTOR_TARBALL: ${{ github.workspace }}/${{ steps.pack.outputs.tarball }}
-        run: npm test
+        run: pnpm test
       - name: Create checksum and SBOM for the tested tarball
         env:
           TARBALL: ${{ steps.pack.outputs.tarball }}
         run: |
           sha256sum "$TARBALL" > "$TARBALL.sha256"
-          npm sbom --sbom-format cyclonedx > "$TARBALL.sbom.cdx.json"
+          pnpm sbom --prod --sbom-format cyclonedx > "$TARBALL.sbom.cdx.json"
       - name: Publish exact tarball with OIDC provenance when absent
         env:
           TARBALL: ${{ steps.pack.outputs.tarball }}
         run: |
           NAME=$(node -p "require('./package.json').name")
           VERSION=$(node -p "require('./package.json').version")
-          if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+          if pnpm view "$NAME@$VERSION" version >/dev/null 2>&1; then
             echo "$NAME@$VERSION is already published"
           else
-            npm publish "$TARBALL" --provenance --access public
+            pnpm publish "$TARBALL" --access public
           fi
       - name: Create or update idempotent GitHub release
         env:

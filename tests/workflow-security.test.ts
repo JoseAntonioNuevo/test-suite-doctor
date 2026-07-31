@@ -33,13 +33,13 @@ describe("workflow security and release contract", () => {
     const release = readFileSync(resolve(workflowDir, "release.yml"), "utf8");
     expect(release).toContain("environment: release");
     expect(release).toContain("id-token: write");
-    expect(release).toContain("npm@11.5.1");
-    expect(release).toContain("npm pack --json");
+    expect(release).toContain("version: 11.18.0");
+    expect(release).toContain("pnpm --config.ignore-scripts=true pack --json");
     expect(release).toContain("TEST_SUITE_DOCTOR_TARBALL");
-    expect(release).toContain("npm publish \"$TARBALL\" --provenance");
-    expect(release).toContain("npm view \"$NAME@$VERSION\"");
+    expect(release).toContain("pnpm publish \"$TARBALL\" --access public");
+    expect(release).toContain("pnpm view \"$NAME@$VERSION\"");
     expect(release).toContain("sha256sum");
-    expect(release).toContain("npm sbom");
+    expect(release).toContain("pnpm sbom");
     expect(release).not.toContain("NODE_AUTH_TOKEN");
     expect(release).not.toContain("NPM_TOKEN");
   });

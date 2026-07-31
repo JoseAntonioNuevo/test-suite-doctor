@@ -6,8 +6,8 @@
 [![Node >= 22](https://img.shields.io/badge/node-%3E%3D22-blue.svg)](package.json)
 [![Agent Skill](https://img.shields.io/badge/agent%20skill-SKILL.md-8A2BE2)](SKILL.md)
 
-An [agent skill](https://agentskills.io) + compiled npm CLI that **audits,
-minimize, and heal bloated JavaScript/TypeScript test suites** (Vitest and
+An [agent skill](https://agentskills.io) + compiled CLI that **audits,
+minimizes, and heals bloated JavaScript/TypeScript test suites** (Vitest and
 Jest). Find a smaller coverage-retaining subset using per-test metrics and a
 deterministic greedy minimization algorithm, then verify it against the recorded
 baseline and, optionally, a Stryker mutation floor.
@@ -45,26 +45,26 @@ cannot see and writing good replacements for what is lost.
 
 ```
 ┌─ 1. MEASURE ──────────┐   ┌─ 2. MINIMIZE ─────────┐   ┌─ 3. REVIEW ─────────────┐
-│ scripts/               │   │ scripts/minimize.ts    │   │ agent judgment +         │
-│ collect-metrics.ts     │──▶│ greedy weighted-sum    │──▶│ references/              │
+│ doctor collect         │   │ doctor minimize        │   │ agent judgment +         │
+│ per-unit measurement   │──▶│ greedy weighted-sum    │──▶│ references/              │
 │ per-test coverage +    │   │ over the coverage      │   │ slop-patterns.md         │
 │ runtime → report.json  │   │ matrix → plan.json/md  │   │ rescue / classify / edit │
 └────────────────────────┘   └────────────────────────┘   └───────────┬──────────────┘
                                                                       │ delete on a branch
 ┌─ 5. VERIFY ────────────┐   ┌─ 4. REGENERATE ────────┐               │
-│ scripts/verify.ts      │◀──│ agent judgment +        │◀─────────────┘
+│ doctor verify          │◀──│ agent judgment +        │◀─────────────┘
 │ suite green + coverage │   │ references/             │
 │ retention ≥ floor      │   │ quality-rules.md        │
 │ (+ optional Stryker)   │   │ fill coverage gaps      │
 └────────────────────────┘   └─────────────────────────┘
 ```
 
-1. **MEASURE** (script) — detects Vitest/Jest, runs the suite once as a
+1. **MEASURE** (`collect`) — detects Vitest/Jest, runs the suite once as a
    baseline, then re-runs each test file (or each test) in isolation with
    coverage, producing a machine-readable report: unit → covered
    lines/branches + runtime.
-2. **MINIMIZE** (script) — greedy weighted-sum selection: repeatedly keep the
-   unit with the most *newly* covered lines/branches per millisecond of
+2. **MINIMIZE** (`minimize`) — greedy weighted-sum selection: repeatedly keep
+   the unit with the most *newly* covered lines/branches per millisecond of
    runtime until the configured floors are met (coverage floor, target count,
    runtime budget). Outputs a keep/drop plan with a justification per unit.
 3. **REVIEW** (agent/human) — nothing is deleted automatically. Drop
@@ -74,7 +74,7 @@ cannot see and writing good replacements for what is lost.
 4. **REGENERATE** (agent/human) — coverage gaps left after pruning get new,
    high-quality tests per the [quality rules](references/quality-rules.md):
    AAA, behavior-driven, mocks only at external boundaries.
-5. **VERIFY** (script) — re-runs the suite, requires it green and line
+5. **VERIFY** (`verify`) — re-runs the suite, requires it green and line
    retention ≥ floor vs baseline; optionally runs Stryker mutation testing on
    critical modules. Non-zero exit on failure, so it can gate CI.
 
@@ -82,14 +82,14 @@ cannot see and writing good replacements for what is lost.
 
 Real output from the bundled demo (`examples/`) — a 12-file suite modeling a
 slop-heavy repo. The minimizer keeps 5 of 12 units at **100% line and branch
-retention** and 64% less runtime:
+retention** and 64% lower estimated optimization cost:
 
 | Metric | Before | After |
 |---|---:|---:|
 | Units | 12 | **5** |
 | Covered lines | 95 | 95 (100.0% retained) |
 | Covered branches | 5 | 5 (100.0% retained) |
-| Test runtime | 4070ms | 1470ms |
+| Estimated test cost | 4070ms | 1470ms |
 
 Drop list (excerpt) — every drop is justified and attributed:
 
@@ -119,20 +119,24 @@ node dist/cli.mjs minimize --report examples/demo-report.json \
 
 ## Installation
 
-### npm CLI
+### pnpm CLI
+
+The source and package metadata are ready for `0.3.0`, but the first registry
+publication has not happened yet. Until it does, use the Git installation below
+or run the committed `dist/cli.mjs` directly. After publication:
 
 ```bash
-npm install --global test-suite-doctor
+pnpm add --global test-suite-doctor
 test-suite-doctor --version
 test-suite-doctor collect --cwd /path/to/repo
 ```
 
-The npm package has no production dependencies and exposes only the CLI and
+The registry package has no production dependencies and exposes only the CLI and
 versioned artifact schemas; there is no supported JavaScript library API.
 
-The skill is a plain folder — `SKILL.md` (the workflow) + `scripts/`
-(deterministic CLIs) + `references/` (judgment guides). Installing it anywhere
-is "put the folder where your tool looks for it."
+The skill is a plain folder — `SKILL.md` (the workflow), `dist/cli.mjs`
+(the deterministic CLI), and `references/` (judgment guides). Installing it
+anywhere is "put the folder where your tool looks for it."
 
 ### Claude Code
 
@@ -150,7 +154,7 @@ Or with the [skills CLI](https://github.com/vercel-labs/skills), which also
 targets other compatible tools:
 
 ```bash
-npx skills add JoseAntonioNuevo/test-suite-doctor
+pnpm dlx skills add JoseAntonioNuevo/test-suite-doctor
 ```
 
 Then just ask: *"audit my test suite"*, *"reduce my tests to ~200"*, *"clean
@@ -179,8 +183,8 @@ Clone the repo into your project (or a shared location) and add a rule
 
 ```
 When the user asks to audit, minimize, or clean up tests, read
-tools/test-suite-doctor/SKILL.md and follow its workflow. Always run its
-scripts for metrics before proposing any test deletion.
+tools/test-suite-doctor/SKILL.md and follow its workflow. Always run its CLI
+for metrics before proposing any test deletion.
 ```
 
 ### Grok build and other agentic tools
@@ -204,15 +208,15 @@ node dist/cli.mjs minimize --coverage-floor 0.97 --target-count 200
 node dist/cli.mjs verify --coverage-floor 0.97
 ```
 
-`verify.ts` exits non-zero when floors aren't met, so it drops straight into a
-CI job as a regression gate for your reduced suite.
+`test-suite-doctor verify` exits non-zero when floors aren't met, so it drops
+straight into a CI job as a regression gate for your reduced suite.
 
 ## CLI reference
 
 Every command supports `--help`. The TypeScript files under `scripts/` remain
 thin backward-compatible wrappers during the 0.x series. The important knobs:
 
-### `scripts/collect-metrics.ts` — MEASURE
+### `test-suite-doctor collect` — MEASURE
 
 | Flag | Default | Meaning |
 |---|---|---|
@@ -234,7 +238,7 @@ instrumentation is process-wide, so this is the only runner-agnostic way to
 attribute lines to tests. That's why `file` granularity is the default: it
 needs one run per test file, not one per test.
 
-### `scripts/minimize.ts` — MINIMIZE
+### `test-suite-doctor minimize` — MINIMIZE
 
 | Flag | Default | Meaning |
 |---|---|---|
@@ -248,7 +252,7 @@ needs one run per test file, not one per test.
 | `--keep <regex>` | — | Force-keep matching units (repeatable) |
 | `--keep-unmeasured` | off | Force-keep every incomplete unit and mark the plan unverified |
 
-### `scripts/verify.ts` — VERIFY
+### `test-suite-doctor verify` — VERIFY
 
 | Flag | Default | Meaning |
 |---|---|---|
@@ -275,14 +279,14 @@ coverage-guided minimization work):
 
 1. The universe is every line (and branch) covered by the baseline run.
 2. Each round selects the unit maximizing
-   `(w_lines · new_lines + w_branches · new_branches) / runtime_ms`.
+   `(w_lines · new_lines + w_branches · new_branches) / estimated_cost_ms`.
 3. Stop when the coverage floor (and optional branch floor) is met, the
    runtime budget is exhausted, or no unit adds anything new.
 
 Marginal coverage gain is submodular, so the implementation uses lazy
 (CELF-style) evaluation — stale scores are valid upper bounds — which keeps
 2,000-unit suites fast. Selection is fully deterministic: ties break by
-runtime, then unit id.
+estimated cost, then structured unit identity.
 
 Everything the algorithm can't see is pushed to the explicit REVIEW step:
 that split — deterministic scripts for measurable facts, judgment for
@@ -298,7 +302,7 @@ runs the complete compiled-CLI pipeline, and records raw artifacts plus the
 median of three measured verification wall times.
 
 ```bash
-npm run build
+pnpm run build
 node --import tsx tools/run-benchmarks.ts --validate
 node --import tsx tools/run-benchmarks.ts --target small --out benchmark-results
 ```
@@ -346,7 +350,7 @@ Bug reports, new slop patterns for the catalog, and support for more runners
 are all welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Found a new AI-slop
 pattern in the wild? [File it with the dedicated issue template](https://github.com/JoseAntonioNuevo/test-suite-doctor/issues/new?template=slop-pattern.yml).
 Maintainers should follow the [release runbook](docs/releasing.md) for tag
-protection, the one-time npm bootstrap, OIDC trusted publishing, and exact
+protection, the one-time registry bootstrap, OIDC trusted publishing, and exact
 tarball verification.
 
 ## License

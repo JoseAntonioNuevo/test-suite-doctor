@@ -25,15 +25,18 @@ jobs:
       - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
         with:
           persist-credentials: false
+      - uses: pnpm/action-setup@008330803749db0355799c700092d9a85fd074e9 # v6.0.9
+        with:
+          version: 11.18.0
       - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
           node-version: ${{ matrix.node-version }}
-          cache: npm
-      - run: npm ci
-      - run: npm run typecheck
-      - run: npm test
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck
+      - run: pnpm test
       - name: Rebuild committed CLI
-        run: npm run build && git diff --exit-code -- dist/cli.mjs
+        run: pnpm run build && git diff --exit-code -- dist/cli.mjs
 
   runner-integration:
     name: Runner integration (${{ matrix.os }})
@@ -47,12 +50,15 @@ jobs:
       - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
         with:
           persist-credentials: false
+      - uses: pnpm/action-setup@008330803749db0355799c700092d9a85fd074e9 # v6.0.9
+        with:
+          version: 11.18.0
       - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm test -- tests/collect-integration.test.ts tests/verify-integration.test.ts tests/jest-integration.test.ts
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test -- tests/collect-integration.test.ts tests/verify-integration.test.ts tests/jest-integration.test.ts
 
   dogfood:
     name: Dogfood compiled CLI
@@ -62,12 +68,15 @@ jobs:
       - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
         with:
           persist-credentials: false
+      - uses: pnpm/action-setup@008330803749db0355799c700092d9a85fd074e9 # v6.0.9
+        with:
+          version: 11.18.0
       - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run build
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
       - name: Collect, minimize, and verify this repository
         run: |
           node dist/cli.mjs collect --cwd .
@@ -86,12 +95,15 @@ jobs:
       - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
         with:
           persist-credentials: false
+      - uses: pnpm/action-setup@008330803749db0355799c700092d9a85fd074e9 # v6.0.9
+        with:
+          version: 11.18.0
       - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm test -- tests/package-smoke.test.ts tests/compiled-cli.test.ts
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test -- tests/package-smoke.test.ts tests/compiled-cli.test.ts
 
   mutation-smoke:
     name: Mutation smoke
@@ -101,12 +113,15 @@ jobs:
       - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
         with:
           persist-credentials: false
+      - uses: pnpm/action-setup@008330803749db0355799c700092d9a85fd074e9 # v6.0.9
+        with:
+          version: 11.18.0
       - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm test -- tests/verify-core.test.ts tests/verify-integration.test.ts
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test -- tests/verify-core.test.ts tests/verify-integration.test.ts
 
   workflow-security:
     name: Workflow security
@@ -116,12 +131,15 @@ jobs:
       - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
         with:
           persist-credentials: false
+      - uses: pnpm/action-setup@008330803749db0355799c700092d9a85fd074e9 # v6.0.9
+        with:
+          version: 11.18.0
       - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm test -- tests/workflow-security.test.ts
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test -- tests/workflow-security.test.ts tests/package-manager-policy.test.ts
       - name: actionlint
         run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
       - name: zizmor
@@ -135,9 +153,12 @@ jobs:
       - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
         with:
           persist-credentials: false
+      - uses: pnpm/action-setup@008330803749db0355799c700092d9a85fd074e9 # v6.0.9
+        with:
+          version: 11.18.0
       - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm test -- tests/benchmark-manifest.test.ts tests/greedy.test.ts
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test -- tests/benchmark-manifest.test.ts tests/greedy.test.ts

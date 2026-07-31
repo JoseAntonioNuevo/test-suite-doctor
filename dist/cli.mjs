@@ -150,10 +150,9 @@ var init_detect = __esm({
 // scripts/lib/exec.ts
 import { spawn } from "node:child_process";
 function run(cmd, args, opts) {
-  const bin = process.platform === "win32" && cmd === "npx" ? "npx.cmd" : cmd;
   return new Promise((resolve8) => {
     const started = Date.now();
-    const child = spawn(bin, args, {
+    const child = spawn(cmd, args, {
       cwd: opts.cwd,
       env: { ...process.env, CI: "true", ...opts.env },
       stdio: ["ignore", "pipe", "pipe"]

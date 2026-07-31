@@ -1,4 +1,4 @@
-#!/usr/bin/env -S npx tsx
+#!/usr/bin/env -S pnpm exec tsx
 export { verifyCommand } from "./commands/verify.ts";
 import { verifyCommand } from "./commands/verify.ts";
 

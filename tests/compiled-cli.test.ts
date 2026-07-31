@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
-import { spawnNpm } from "./helpers/npm.ts";
+import { spawnPnpm } from "./helpers/pnpm.ts";
 
 const root = resolve(import.meta.dirname, "..");
 
@@ -32,7 +32,7 @@ describe("unified CLI", () => {
   });
 
   it("builds one committed dependency-free ESM executable", () => {
-    const result = spawnNpm(["run", "build"], root);
+    const result = spawnPnpm(["run", "build"], root);
     expect(result.status, result.stderr).toBe(0);
     const output = resolve(root, "dist/cli.mjs");
     expect(existsSync(output)).toBe(true);
