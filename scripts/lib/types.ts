@@ -136,6 +136,13 @@ export interface MinimizePlan {
   };
   keep: KeepEntry[];
   drop: DropEntry[];
+  frontier?: Array<{
+    floor: number;
+    unitsKept: number;
+    lineRetention: number;
+    branchRetention: number;
+    estimatedCostMs: number;
+  }>;
   sourceReport?: {
     version: 1 | 2;
     runId: string;

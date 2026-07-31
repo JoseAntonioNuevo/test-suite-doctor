@@ -59,6 +59,21 @@
         }
       }
     },
+    "frontier": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["floor", "unitsKept", "lineRetention", "branchRetention", "estimatedCostMs"],
+        "properties": {
+          "floor": { "type": "number", "minimum": 0, "maximum": 1 },
+          "unitsKept": { "type": "integer", "minimum": 0 },
+          "lineRetention": { "type": "number", "minimum": 0, "maximum": 1 },
+          "branchRetention": { "type": "number", "minimum": 0, "maximum": 1 },
+          "estimatedCostMs": { "type": "number", "minimum": 0 }
+        }
+      }
+    },
     "sourceReport": {
       "type": "object", "additionalProperties": false,
       "required": ["version", "runId", "legacy", "fingerprint"],

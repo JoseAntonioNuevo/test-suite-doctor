@@ -1,7 +1,7 @@
 {
   "version": 2,
   "tool": "test-suite-doctor",
-  "toolVersion": "0.2.0",
+  "toolVersion": "0.3.0",
   "runId": "demo-synthetic",
   "createdAt": "2026-07-31T00:00:00.000Z",
   "cwd": "/demo/shop",

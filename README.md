@@ -6,7 +6,7 @@
 [![Node >= 22](https://img.shields.io/badge/node-%3E%3D22-blue.svg)](package.json)
 [![Agent Skill](https://img.shields.io/badge/agent%20skill-SKILL.md-8A2BE2)](SKILL.md)
 
-An [agent skill](https://agentskills.io) + standalone CLI scripts that **audit,
+An [agent skill](https://agentskills.io) + compiled npm CLI that **audits,
 minimize, and heal bloated JavaScript/TypeScript test suites** (Vitest and
 Jest). Find a smaller coverage-retaining subset using per-test metrics and a
 deterministic greedy minimization algorithm, then verify it against the recorded
@@ -17,8 +17,8 @@ baseline and, optionally, a Stryker mutation floor.
 > condition unless every unmeasured unit is explicitly force-kept.
 
 Works with **Claude Code, Codex, Cursor, Grok build, and any agent that can
-read a markdown file and run a CLI** — and with no agent at all: the scripts
-are plain `npx tsx` CLIs you can run by hand or in CI.
+read a markdown file and run a CLI** — and with no agent at all. The committed,
+dependency-free `dist/cli.mjs` runs with Node.js alone.
 
 ---
 
@@ -113,11 +113,22 @@ Try it yourself, no target repo needed:
 ```bash
 git clone https://github.com/JoseAntonioNuevo/test-suite-doctor.git
 cd test-suite-doctor
-npx tsx scripts/minimize.ts --report examples/demo-report.json \
+node dist/cli.mjs minimize --report examples/demo-report.json \
   --out-plan /tmp/plan.json --out-md /tmp/plan.md --keep regression
 ```
 
 ## Installation
+
+### npm CLI
+
+```bash
+npm install --global test-suite-doctor
+test-suite-doctor --version
+test-suite-doctor collect --cwd /path/to/repo
+```
+
+The npm package has no production dependencies and exposes only the CLI and
+versioned artifact schemas; there is no supported JavaScript library API.
 
 The skill is a plain folder — `SKILL.md` (the workflow) + `scripts/`
 (deterministic CLIs) + `references/` (judgment guides). Installing it anywhere
@@ -155,7 +166,7 @@ agent at it from your `AGENTS.md`:
 ## Test suite maintenance
 When asked to audit, reduce, or clean up the test suite, read
 ~/skills/test-suite-doctor/SKILL.md and follow its workflow exactly.
-Its scripts run standalone: `npx tsx ~/skills/test-suite-doctor/scripts/<name>.ts --help`.
+Its CLI runs standalone: `node ~/skills/test-suite-doctor/dist/cli.mjs --help`.
 ```
 
 Codex also supports the skills folder convention directly (`~/.codex/skills/`
@@ -185,13 +196,12 @@ servers, no tool-specific commands.
 
 ### No agent at all (human / CI)
 
-The scripts are self-contained CLIs — Node ≥ 22, zero runtime dependencies
-(`npx tsx` fetches the TypeScript runner on demand):
+The compiled CLI requires Node ≥ 22 and has zero runtime dependencies:
 
 ```bash
-npx tsx scripts/collect-metrics.ts --cwd /path/to/repo
-npx tsx scripts/minimize.ts --coverage-floor 0.97 --target-count 200
-npx tsx scripts/verify.ts --coverage-floor 0.97
+node dist/cli.mjs collect --cwd /path/to/repo
+node dist/cli.mjs minimize --coverage-floor 0.97 --target-count 200
+node dist/cli.mjs verify --coverage-floor 0.97
 ```
 
 `verify.ts` exits non-zero when floors aren't met, so it drops straight into a
@@ -199,7 +209,8 @@ CI job as a regression gate for your reduced suite.
 
 ## CLI reference
 
-Every script supports `--help`. The important knobs:
+Every command supports `--help`. The TypeScript files under `scripts/` remain
+thin backward-compatible wrappers during the 0.x series. The important knobs:
 
 ### `scripts/collect-metrics.ts` — MEASURE
 
@@ -232,6 +243,7 @@ needs one run per test file, not one per test.
 | `--target-count` | — | Aspirational kept-unit count (floor wins unless `--strict-count`) |
 | `--runtime-budget-ms` | — | Stop before kept runtime exceeds this |
 | `--cost-model` | `auto` | `auto`, assertion duration, or isolated wall time |
+| `--frontier <floors>` | — | Additional comma-separated retention floors for a deterministic trade-off table |
 | `--w-lines` / `--w-branches` | `1` / `1` | Weighted-sum weights |
 | `--keep <regex>` | — | Force-keep matching units (repeatable) |
 | `--keep-unmeasured` | off | Force-keep every incomplete unit and mark the plan unverified |
@@ -276,6 +288,27 @@ Everything the algorithm can't see is pushed to the explicit REVIEW step:
 that split — deterministic scripts for measurable facts, judgment for
 contracts and intent — is the design center of the whole skill.
 
+## Reproducible benchmarks
+
+[`benchmarks/manifest.json`](benchmarks/manifest.json) pins Defu,
+Express Rate Limit, and Remeda to immutable commits and records the license,
+package manager, lockfile, target directory, runner, filter, and floors for
+each target. `tools/run-benchmarks.ts` verifies the commit and lockfile digest,
+runs the complete compiled-CLI pipeline, and records raw artifacts plus the
+median of three measured verification wall times.
+
+```bash
+npm run build
+node --import tsx tools/run-benchmarks.ts --validate
+node --import tsx tools/run-benchmarks.ts --target small --out benchmark-results
+```
+
+CI gates structural correctness and configured retention, not absolute timing.
+Uploaded benchmark artifacts are never auto-committed; reviewed snapshot PRs
+are the only way results enter the repository. Observed reductions are results
+for those pinned projects and environments, not universal promises or claims
+about fault-detection retention.
+
 ## Artifacts
 
 All artifacts are JSON Schema-backed version 2 documents under `.test-doctor/`
@@ -312,6 +345,9 @@ requires v2.
 Bug reports, new slop patterns for the catalog, and support for more runners
 are all welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Found a new AI-slop
 pattern in the wild? [File it with the dedicated issue template](https://github.com/JoseAntonioNuevo/test-suite-doctor/issues/new?template=slop-pattern.yml).
+Maintainers should follow the [release runbook](docs/releasing.md) for tag
+protection, the one-time npm bootstrap, OIDC trusted publishing, and exact
+tarball verification.
 
 ## License
 

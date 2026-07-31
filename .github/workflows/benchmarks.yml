@@ -1,0 +1,60 @@
+name: External benchmarks
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Benchmark size or all
+        required: true
+        default: all
+        type: choice
+        options: [small, medium, large, all]
+  schedule:
+    - cron: "17 4 * * 1"
+    - cron: "43 3 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: benchmarks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  run:
+    name: Pinned benchmark (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [small, medium, large]
+    steps:
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm install --global npm@11.5.1
+      - run: npm ci
+      - run: npm run build
+      - name: Run pinned target
+        if: >-
+          (github.event_name == 'workflow_dispatch' && (inputs.target == 'all' || inputs.target == matrix.target)) ||
+          (github.event.schedule == '17 4 * * 1' && matrix.target != 'large') ||
+          (github.event.schedule == '43 3 * * *' && matrix.target == 'large')
+        env:
+          BENCHMARK_TARGET: ${{ matrix.target }}
+        run: node --import tsx tools/run-benchmarks.ts --target "$BENCHMARK_TARGET" --out benchmark-results
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: >-
+          (github.event_name == 'workflow_dispatch' && (inputs.target == 'all' || inputs.target == matrix.target)) ||
+          (github.event.schedule == '17 4 * * 1' && matrix.target != 'large') ||
+          (github.event.schedule == '43 3 * * *' && matrix.target == 'large')
+        with:
+          name: benchmark-${{ matrix.target }}-${{ github.sha }}
+          path: benchmark-results/
+          if-no-files-found: error
+          retention-days: 30

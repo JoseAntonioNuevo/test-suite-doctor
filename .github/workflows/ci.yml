@@ -8,11 +8,17 @@ on:
     branches: [main]
   pull_request:
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   quality:
+    name: Quality (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     strategy:
+      fail-fast: false
       matrix:
         node-version: [22, 24, 26]
     steps:
@@ -26,18 +32,13 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
-      - name: Demo pipeline smoke test
-        run: |
-          npx --no-install tsx examples/make-demo.ts
-          npx --no-install tsx scripts/minimize.ts --report examples/demo-report.json \
-            --out-plan /tmp/demo-plan.json --out-md /tmp/demo-plan.md \
-            --coverage-floor 0.97 --keep regression
-          node -e "const p=require('/tmp/demo-plan.json'); if(p.summary.lineRetention<0.97) process.exit(1)"
+      - name: Rebuild committed CLI
+        run: npm run build && git diff --exit-code -- dist/cli.mjs
 
   runner-integration:
     name: Runner integration (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
@@ -54,8 +55,9 @@ jobs:
       - run: npm test -- tests/collect-integration.test.ts tests/verify-integration.test.ts tests/jest-integration.test.ts
 
   dogfood:
+    name: Dogfood compiled CLI
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
         with:
@@ -65,8 +67,77 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm run build
       - name: Collect, minimize, and verify this repository
         run: |
-          node --import tsx scripts/collect-metrics.ts --cwd .
-          node --import tsx scripts/minimize.ts --report .test-doctor/report.json
-          node --import tsx scripts/verify.ts --baseline .test-doctor/report.json
+          node dist/cli.mjs collect --cwd .
+          node dist/cli.mjs minimize --report .test-doctor/report.json
+          node dist/cli.mjs verify --baseline .test-doctor/report.json
+
+  package-smoke:
+    name: Package smoke (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test -- tests/package-smoke.test.ts tests/compiled-cli.test.ts
+
+  mutation-smoke:
+    name: Mutation smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test -- tests/verify-core.test.ts tests/verify-integration.test.ts
+
+  workflow-security:
+    name: Workflow security
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test -- tests/workflow-security.test.ts
+      - name: actionlint
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+      - name: zizmor
+        run: pipx run zizmor==1.28.0 --min-severity=high --min-confidence=high .
+
+  benchmark:
+    name: Synthetic benchmark
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test -- tests/benchmark-manifest.test.ts tests/greedy.test.ts

@@ -101,6 +101,7 @@ export interface ParsedResults {
   failedTests: number;
   failedSuites: number;
   runtimeErrorSuites: number;
+  suiteMessages: string[];
   fileDurations: Map<string, number>;
 }
 
@@ -138,6 +139,9 @@ export function parseResultsFile(raw: JestResultsFile): ParsedResults {
       raw.numFailedTestSuites ??
       (raw.testResults ?? []).filter((result) => result.status === "failed").length,
     runtimeErrorSuites: raw.numRuntimeErrorTestSuites ?? 0,
+    suiteMessages: (raw.testResults ?? [])
+      .map((result) => result.message?.trim())
+      .filter((message): message is string => Boolean(message)),
     fileDurations,
   };
 }
@@ -173,6 +177,7 @@ export function validateRunOutcome(
   if (results.tests.some((test) => test.status === "failed")) {
     reasons.push("assertion results contain failures");
   }
+  for (const message of results.suiteMessages) reasons.push(`suite: ${message}`);
   if (results.totalTests <= 0 || results.tests.length === 0) {
     reasons.push("suite executed no tests");
     return { green: false, kind: "environment-error", reasons };

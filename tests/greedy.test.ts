@@ -212,4 +212,24 @@ describe("greedy minimization", () => {
     expect(md).toContain("UNTRUSTED");
     expect(md).toContain("Residual branches");
   });
+
+  it("handles a deterministic synthetic 2,000-unit frontier", () => {
+    const baseline: CoverageMap = { "src/large.ts": { lines: range(1, 2_000), branches: [] } };
+    const units = Array.from({ length: 2_000 }, (_, index) => {
+      const block = index % 20;
+      return unit(
+        `unit-${index.toString().padStart(4, "0")}`,
+        { "src/large.ts": { lines: range(block * 100 + 1, block * 100 + 100) } },
+        1,
+      );
+    });
+
+    const first = minimize(units, baseline, { coverageFloor: 0.95 });
+    const second = minimize(units, baseline, { coverageFloor: 0.95 });
+
+    expect(first.summary.unitsTotal).toBe(2_000);
+    expect(first.summary.unitsKept).toBe(19);
+    expect(first.summary.lineRetention).toBe(0.95);
+    expect(first.keep.map((entry) => entry.id)).toEqual(second.keep.map((entry) => entry.id));
+  }, 10_000);
 });

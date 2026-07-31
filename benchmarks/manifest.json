@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "verificationRuns": 3,
+  "targets": [
+    {
+      "id": "defu-small",
+      "size": "small",
+      "repository": "unjs/defu",
+      "url": "https://github.com/unjs/defu.git",
+      "commit": "82632b66f5914e9946edce300e10633a3d5c0cb7",
+      "license": "MIT",
+      "packageManager": "pnpm@10.33.4",
+      "lockfile": "pnpm-lock.yaml",
+      "cwd": ".",
+      "runner": "vitest",
+      "filter": null,
+      "granularity": "file",
+      "coverageFloor": 0.97,
+      "branchFloor": 0.97,
+      "schedule": ["weekly", "manual", "release"]
+    },
+    {
+      "id": "express-rate-limit-medium",
+      "size": "medium",
+      "repository": "express-rate-limit/express-rate-limit",
+      "url": "https://github.com/express-rate-limit/express-rate-limit.git",
+      "commit": "d2370f62147e1de7cd8df9d74bc6264b7f0e330e",
+      "license": "MIT",
+      "packageManager": "npm@11.5.1",
+      "lockfile": "package-lock.json",
+      "cwd": ".",
+      "runner": "jest",
+      "filter": null,
+      "granularity": "file",
+      "coverageFloor": 0.97,
+      "branchFloor": 0.97,
+      "schedule": ["weekly", "manual", "release"]
+    },
+    {
+      "id": "remeda-large",
+      "size": "large",
+      "repository": "remeda/remeda",
+      "url": "https://github.com/remeda/remeda.git",
+      "commit": "d24feab2b7d1b615214ea80c5b13fcca0c87a8a0",
+      "license": "MIT",
+      "packageManager": "npm@11.5.1",
+      "lockfile": "package-lock.json",
+      "cwd": "packages/remeda",
+      "runner": "vitest",
+      "filter": null,
+      "granularity": "file",
+      "coverageFloor": 0.97,
+      "branchFloor": 0.97,
+      "schedule": ["nightly", "manual", "release"]
+    }
+  ]
+}

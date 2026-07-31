@@ -41,6 +41,18 @@ export function renderPlanMarkdown(plan: MinimizePlan, maxRows = 400): string {
     for (const w of s.warnings) lines.push(`- ⚠️ ${w}`);
     lines.push("");
   }
+  if (plan.frontier && plan.frontier.length > 0) {
+    lines.push("## Coverage frontier");
+    lines.push("");
+    lines.push("| Requested floor | Units kept | Line retention | Branch retention | Estimated cost |");
+    lines.push("|---:|---:|---:|---:|---:|");
+    for (const entry of plan.frontier) {
+      lines.push(
+        `| ${pct(entry.floor)} | ${entry.unitsKept} | ${pct(entry.lineRetention)} | ${pct(entry.branchRetention)} | ${ms(entry.estimatedCostMs)} |`,
+      );
+    }
+    lines.push("");
+  }
   lines.push(`## Keep (${plan.keep.length})`);
   lines.push("");
   lines.push("| # | Unit | Gain | Estimated cost | Cum. line / branch retention |");

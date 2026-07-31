@@ -12,9 +12,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  verify:
+  benchmark:
+    name: Pinned release benchmarks
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
         with:
@@ -22,22 +23,72 @@ jobs:
       - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
           node-version: 24
-          cache: npm
+      - run: npm install --global npm@11.5.1
       - run: npm ci
-      - run: npm run typecheck
-      - run: npm test
-      - name: Validate tag matches package version
-        run: node -e "const p=require('./package.json'); const tag=process.env.GITHUB_REF_NAME; if(tag !== 'v'+p.version) { console.error(tag+' does not match v'+p.version); process.exit(1) }"
+      - run: npm run build
+      - name: Reproduce all pinned benchmarks, including Remeda
+        run: node --import tsx tools/run-benchmarks.ts --target all --out benchmark-results
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-benchmarks-${{ github.sha }}
+          path: benchmark-results/
+          if-no-files-found: error
+          retention-days: 90
 
-  github-release:
-    needs: verify
+  publish:
+    name: Publish tested tarball
+    needs: benchmark
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 60
+    environment: release
     permissions:
-      contents: write
+      contents: write # create the GitHub release and attach exact artifacts
+      id-token: write # npm trusted publishing provenance
     steps:
-      - name: Create idempotent GitHub release
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: 24
+      - run: npm install --global npm@11.5.1
+      - run: npm ci
+      - run: npm run build && git diff --exit-code -- dist/cli.mjs
+      - name: Validate tag and package version
+        run: |
+          node -e "const p=require('./package.json'); const tag=process.env.GITHUB_REF_NAME; if(!/^v[0-9]+\.[0-9]+\.[0-9]+$/.test(tag) || tag !== 'v'+p.version) process.exit(1)"
+      - name: Pack the tested artifact once
+        id: pack
+        run: |
+          TARBALL=$(npm pack --json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s)[0].filename))")
+          echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
+      - run: npm run typecheck
+      - name: Test the exact tarball selected for publication
+        env:
+          TEST_SUITE_DOCTOR_TARBALL: ${{ github.workspace }}/${{ steps.pack.outputs.tarball }}
+        run: npm test
+      - name: Create checksum and SBOM for the tested tarball
+        env:
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+        run: |
+          sha256sum "$TARBALL" > "$TARBALL.sha256"
+          npm sbom --sbom-format cyclonedx > "$TARBALL.sbom.cdx.json"
+      - name: Publish exact tarball with OIDC provenance when absent
+        env:
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+        run: |
+          NAME=$(node -p "require('./package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+            echo "$NAME@$VERSION is already published"
+          else
+            npm publish "$TARBALL" --provenance --access public
+          fi
+      - name: Create or update idempotent GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
-        run: gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+        run: |
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes
+          gh release upload "$TAG" "$TARBALL" "$TARBALL.sha256" "$TARBALL.sbom.cdx.json" --clobber --repo "$GITHUB_REPOSITORY"

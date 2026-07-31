@@ -1,9 +1,9 @@
 {
   "name": "test-suite-doctor",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Agent skill + standalone scripts to audit, minimize, and heal bloated Vitest/Jest test suites — per-test coverage metrics, greedy minimization, AI-slop detection, mutation-score verification.",
   "type": "module",
-  "private": true,
+  "private": false,
   "license": "MIT",
   "author": "Jose Antonio Nuevo",
   "repository": {
@@ -23,7 +23,23 @@
   "engines": {
     "node": ">=22.0.0"
   },
+  "bin": {
+    "test-suite-doctor": "dist/cli.mjs"
+  },
+  "files": [
+    "dist",
+    "SKILL.md",
+    "references",
+    "schemas",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
+    "build": "node --import tsx tools/build.ts",
+    "prepack": "npm run build",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
@@ -31,6 +47,7 @@
     "@types/node": "^26.1.2",
     "@vitest/coverage-v8": "^4.1.10",
     "ajv": "^8.17.1",
+    "esbuild": "^0.25.8",
     "jest": "^30.4.2",
     "tsx": "^4.23.1",
     "typescript": "^7.0.2",

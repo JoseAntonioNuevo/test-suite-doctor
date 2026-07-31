@@ -12,7 +12,7 @@ coverage — measured, not guessed.
 ## Hard rules
 
 1. **Metrics before opinions.** Never propose deleting a test before
-   `collect-metrics.ts` and `minimize.ts` have produced a plan. Reading test
+   `collect` and `minimize` have produced a plan. Reading test
    code and judging it "useless" is not evidence — a trivial-looking test can be
    the only cover for a branch.
 2. **The plan is a proposal, not a verdict.** Coverage cannot see API
@@ -21,14 +21,14 @@ coverage — measured, not guessed.
 3. **Work on a branch.** Before deleting anything, verify the working tree is
    clean and create a branch (e.g. `test-doctor/minimize`). Never delete tests
    on a dirty tree or the default branch.
-4. **Verify or revert.** The job is not done until `verify.ts` exits 0. If it
+4. **Verify or revert.** The job is not done until `verify` exits 0. If it
    fails, regenerate tests for the reported gaps and re-verify — or restore the
    deleted tests.
 
 ## Requirements check (do this first)
 
 - Node.js ≥ 22 and a package.json using a locally installed Vitest or Jest
-  (`npx tsx scripts/collect-metrics.ts --help` from this skill's directory).
+  (`node <skill-root>/dist/cli.mjs collect --help`).
 - A coverage provider must be installed (Vitest: `@vitest/coverage-v8`;
   Jest has one built in). If missing, offer to install it as a dev dependency.
 - Mutation verification additionally needs `@stryker-mutator/core` configured
@@ -45,7 +45,7 @@ directory. Artifacts land in `.test-doctor/` (suggest gitignoring it).
 ### 1. MEASURE (script — always first)
 
 ```bash
-npx tsx $SKILL/scripts/collect-metrics.ts --cwd .
+node "$SKILL/dist/cli.mjs" collect --cwd .
 ```
 
 Detects the runner, runs the full suite once as the coverage baseline, then
@@ -67,7 +67,7 @@ runtime. Writes `.test-doctor/report.json`.
 ### 2. MINIMIZE (script)
 
 ```bash
-npx tsx $SKILL/scripts/minimize.ts --coverage-floor 0.97 --target-count 200
+node "$SKILL/dist/cli.mjs" minimize --coverage-floor 0.97 --target-count 200
 ```
 
 Greedy weighted-sum selection: repeatedly keeps the unit with the most newly
@@ -113,9 +113,9 @@ covering a real user-visible behavior over three shallow ones.
 ### 5. VERIFY (script — gates completion)
 
 ```bash
-npx tsx $SKILL/scripts/verify.ts --coverage-floor 0.97
+node "$SKILL/dist/cli.mjs" verify --coverage-floor 0.97
 # optionally, for critical modules only (slow):
-npx tsx $SKILL/scripts/verify.ts --mutation --mutate "src/billing/**/*.ts" --mutation-floor 80
+node "$SKILL/dist/cli.mjs" verify --mutation --mutate "src/billing/**/*.ts" --mutation-floor 80
 ```
 
 Re-runs the suite, requires it green, and requires line retention vs the

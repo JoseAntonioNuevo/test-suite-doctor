@@ -61,4 +61,16 @@ describe("runner outcome validation", () => {
     });
     expect(results.fileDurations.get("/repo/a.test.ts")).toBe(40);
   });
+
+  it("retains suite messages for actionable hook and configuration diagnostics", () => {
+    const results = parseResultsFile({
+      success: false,
+      numTotalTests: 0,
+      testResults: [{ name: "/repo/a.test.ts", message: "configuration exploded", assertionResults: [] }],
+    });
+    expect(results.suiteMessages).toEqual(["configuration exploded"]);
+    expect(
+      validateRunOutcome({ code: 1, timedOut: false, signal: null, error: null }, results).reasons,
+    ).toContain("suite: configuration exploded");
+  });
 });

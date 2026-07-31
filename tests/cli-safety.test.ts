@@ -48,6 +48,50 @@ function report(overrides: Record<string, unknown> = {}) {
 }
 
 describe("CLI fail-closed safety", () => {
+  it("writes deterministic, unique, descending frontier alternatives without changing the selected plan", () => {
+    const dir = mkdtempSync(join(tmpdir(), "doctor-frontier-"));
+    const reportPath = join(dir, "report.json");
+    const planPath = join(dir, "plan.json");
+    const mdPath = join(dir, "plan.md");
+    const fixture = report({
+      baseline: {
+        totalTests: 3,
+        totalRuntimeMs: 6,
+        coveredLines: 3,
+        totalLines: 3,
+        coveredBranches: 0,
+        totalBranches: 0,
+      },
+      baselineCoverage: { "src/a.ts": { lines: [1, 2, 3], branches: [] } },
+      units: [1, 2, 3].map((line) => ({
+        id: `${line}.test.ts`,
+        file: `${line}.test.ts`,
+        testName: null,
+        tests: [{ fullName: `line ${line}`, status: "passed", durationMs: line }],
+        runtimeMs: line,
+        wallMs: line,
+        status: "passed",
+        coverage: { "src/a.ts": { lines: [line], branches: [] } },
+      })),
+    });
+    writeFileSync(reportPath, JSON.stringify(fixture));
+
+    const result = invoke("scripts/minimize.ts", [
+      "--report", reportPath,
+      "--out-plan", planPath,
+      "--out-md", mdPath,
+      "--coverage-floor", "1",
+      "--frontier", "0.5,1,0.5,0.75",
+    ]);
+
+    expect(result.status, result.stderr).toBe(0);
+    const plan = JSON.parse(readFileSync(planPath, "utf8"));
+    expect(plan.summary.lineRetention).toBe(1);
+    expect(plan.frontier.map((entry: { floor: number }) => entry.floor)).toEqual([1, 0.75, 0.5]);
+    expect(plan.frontier.map((entry: { unitsKept: number }) => entry.unitsKept)).toEqual([3, 3, 2]);
+    expect(readFileSync(mdPath, "utf8")).toContain("## Coverage frontier");
+  });
+
   it.each([
     ["--branch-floor", "NaN"],
     ["--runtime-budget-ms", "1.5"],

@@ -6,7 +6,7 @@
  * without a target repo:
  *
  *   npx tsx examples/make-demo.ts
- *   npx tsx scripts/minimize.ts --report examples/demo-report.json \
+ *   node dist/cli.mjs minimize --report examples/demo-report.json \
  *     --out-plan examples/demo-plan.json --out-md examples/demo-plan.md \
  *     --coverage-floor 0.97 --keep regression
  */
@@ -107,7 +107,7 @@ const coveredBranches = Object.values(baselineCoverage).reduce((s, c) => s + c.b
 const report: MetricsReport = {
   version: 2,
   tool: "test-suite-doctor",
-  toolVersion: "0.2.0",
+  toolVersion: "0.3.0",
   runId: "demo-synthetic",
   createdAt: "2026-07-31T00:00:00.000Z",
   cwd: "/demo/shop",
