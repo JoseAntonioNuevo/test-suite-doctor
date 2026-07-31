@@ -1,0 +1,118 @@
+{
+  "version": 1,
+  "tool": "test-suite-doctor",
+  "createdAt": "2026-07-31T09:56:27.013Z",
+  "granularity": "file",
+  "options": {
+    "coverageFloor": 0.97,
+    "branchFloor": null,
+    "targetCount": null,
+    "strictCount": false,
+    "runtimeBudgetMs": null,
+    "weightLines": 1,
+    "weightBranches": 1,
+    "forceKeep": [
+      "regression"
+    ]
+  },
+  "summary": {
+    "unitsTotal": 12,
+    "unitsKept": 5,
+    "unitsDropped": 7,
+    "baselineCoveredLines": 95,
+    "keptCoveredLines": 95,
+    "lineRetention": 1,
+    "baselineCoveredBranches": 5,
+    "keptCoveredBranches": 5,
+    "branchRetention": 1,
+    "keptRuntimeMs": 1470,
+    "totalRuntimeMs": 4070,
+    "warnings": []
+  },
+  "keep": [
+    {
+      "id": "tests/regression-1042.test.ts",
+      "reason": "force-kept (--keep pattern)",
+      "newLines": 2,
+      "newBranches": 1,
+      "runtimeMs": 45,
+      "cumulativeLineRetention": 0.0211
+    },
+    {
+      "id": "tests/pricing-snapshot.test.ts",
+      "reason": "+35 lines, +0 branches for 95ms",
+      "newLines": 35,
+      "newBranches": 0,
+      "runtimeMs": 95,
+      "cumulativeLineRetention": 0.3895
+    },
+    {
+      "id": "tests/smoke.test.ts",
+      "reason": "+10 lines, +0 branches for 70ms",
+      "newLines": 10,
+      "newBranches": 0,
+      "runtimeMs": 70,
+      "cumulativeLineRetention": 0.4947
+    },
+    {
+      "id": "tests/api.test.ts",
+      "reason": "+20 lines, +2 branches for 410ms",
+      "newLines": 20,
+      "newBranches": 2,
+      "runtimeMs": 410,
+      "cumulativeLineRetention": 0.7053
+    },
+    {
+      "id": "tests/cart.test.ts",
+      "reason": "+28 lines, +2 branches for 850ms",
+      "newLines": 28,
+      "newBranches": 2,
+      "runtimeMs": 850,
+      "cumulativeLineRetention": 1
+    }
+  ],
+  "drop": [
+    {
+      "id": "tests/api-contract.test.ts",
+      "residualLines": 0,
+      "bestOverlapWith": "tests/api.test.ts",
+      "reason": "adds no line coverage beyond the kept set"
+    },
+    {
+      "id": "tests/api-mock.test.ts",
+      "residualLines": 0,
+      "bestOverlapWith": "tests/api.test.ts",
+      "reason": "adds no line coverage beyond the kept set"
+    },
+    {
+      "id": "tests/cart-extra.test.ts",
+      "residualLines": 0,
+      "bestOverlapWith": "tests/cart.test.ts",
+      "reason": "adds no line coverage beyond the kept set"
+    },
+    {
+      "id": "tests/cart-should-work-2.test.ts",
+      "residualLines": 0,
+      "bestOverlapWith": "tests/cart.test.ts",
+      "reason": "adds no line coverage beyond the kept set"
+    },
+    {
+      "id": "tests/pricing-more.test.ts",
+      "residualLines": 0,
+      "bestOverlapWith": "tests/pricing-snapshot.test.ts",
+      "reason": "adds no line coverage beyond the kept set"
+    },
+    {
+      "id": "tests/pricing.test.ts",
+      "residualLines": 0,
+      "bestOverlapWith": "tests/pricing-snapshot.test.ts",
+      "reason": "adds no line coverage beyond the kept set"
+    },
+    {
+      "id": "tests/utils-lodash.test.ts",
+      "residualLines": 0,
+      "bestOverlapWith": "tests/api.test.ts",
+      "reason": "adds no line coverage beyond the kept set"
+    }
+  ]
+}

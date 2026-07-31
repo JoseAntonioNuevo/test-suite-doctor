@@ -1,0 +1,52 @@
+name: New AI-slop pattern
+description: Report a low-value test anti-pattern the catalog should cover
+title: "[slop-pattern] "
+labels: ["slop-pattern"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks! The catalog lives in `references/slop-patterns.md`. Each entry
+        needs a detection signal, a before/after, and — most importantly —
+        the cases where the pattern is **not** slop.
+  - type: input
+    id: name
+    attributes:
+      label: Pattern name
+      placeholder: e.g. "assertion roulette"
+    validations:
+      required: true
+  - type: textarea
+    id: signal
+    attributes:
+      label: Detection signal
+      description: How would an agent (or the minimizer's data) recognize this pattern?
+    validations:
+      required: true
+  - type: textarea
+    id: before
+    attributes:
+      label: Example of the slop (before)
+      render: ts
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it adds no real quality
+    validations:
+      required: true
+  - type: textarea
+    id: exception
+    attributes:
+      label: When it is NOT slop
+      description: Counter-exceptions prevent over-deletion — this field matters most.
+    validations:
+      required: true
+  - type: textarea
+    id: after
+    attributes:
+      label: Suggested fix (after)
+      render: ts
+    validations:
+      required: false

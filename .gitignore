@@ -1,0 +1,6 @@
+node_modules/
+.test-doctor/
+coverage/
+reports/
+*.log
+.DS_Store

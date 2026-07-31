@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - name: Demo pipeline smoke test
+        run: |
+          npx tsx examples/make-demo.ts
+          npx tsx scripts/minimize.ts --report examples/demo-report.json \
+            --out-plan /tmp/demo-plan.json --out-md /tmp/demo-plan.md \
+            --coverage-floor 0.97 --keep regression
+          node -e "const p=require('/tmp/demo-plan.json'); if(p.summary.lineRetention<0.97) process.exit(1)"

@@ -1,0 +1,689 @@
+{
+  "version": 1,
+  "tool": "test-suite-doctor",
+  "createdAt": "2026-07-31T00:00:00.000Z",
+  "cwd": "/demo/shop",
+  "runner": "vitest",
+  "granularity": "file",
+  "baseline": {
+    "totalTests": 17,
+    "totalRuntimeMs": 4070,
+    "coveredLines": 95,
+    "totalLines": 103,
+    "coveredBranches": 5,
+    "totalBranches": 6
+  },
+  "baselineCoverage": {
+    "src/cart.ts": {
+      "lines": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40
+      ],
+      "branches": [
+        "0.0",
+        "0.1",
+        "1.0"
+      ]
+    },
+    "src/pricing.ts": {
+      "lines": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30
+      ],
+      "branches": []
+    },
+    "src/api.ts": {
+      "lines": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25
+      ],
+      "branches": [
+        "0.0",
+        "0.1"
+      ]
+    }
+  },
+  "collectionErrors": [],
+  "units": [
+    {
+      "id": "tests/cart.test.ts",
+      "file": "tests/cart.test.ts",
+      "testName": null,
+      "tests": [
+        {
+          "fullName": "cart adds an item",
+          "status": "passed",
+          "durationMs": 283
+        },
+        {
+          "fullName": "cart removes an item",
+          "status": "passed",
+          "durationMs": 283
+        },
+        {
+          "fullName": "cart totals per currency",
+          "status": "passed",
+          "durationMs": 283
+        }
+      ],
+      "runtimeMs": 850,
+      "wallMs": 1750,
+      "status": "passed",
+      "coverage": {
+        "src/cart.ts": {
+          "lines": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37,
+            38
+          ],
+          "branches": [
+            "0.0",
+            "0.1"
+          ]
+        },
+        "src/pricing.ts": {
+          "lines": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10
+          ],
+          "branches": []
+        }
+      }
+    },
+    {
+      "id": "tests/cart-extra.test.ts",
+      "file": "tests/cart-extra.test.ts",
+      "testName": null,
+      "tests": [
+        {
+          "fullName": "cart should work",
+          "status": "passed",
+          "durationMs": 320
+        },
+        {
+          "fullName": "cart should work correctly",
+          "status": "passed",
+          "durationMs": 320
+        }
+      ],
+      "runtimeMs": 640,
+      "wallMs": 1540,
+      "status": "passed",
+      "coverage": {
+        "src/cart.ts": {
+          "lines": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20
+          ],
+          "branches": []
+        }
+      }
+    },
+    {
+      "id": "tests/cart-should-work-2.test.ts",
+      "file": "tests/cart-should-work-2.test.ts",
+      "testName": null,
+      "tests": [
+        {
+          "fullName": "cart should return the correct value",
+          "status": "passed",
+          "durationMs": 610
+        }
+      ],
+      "runtimeMs": 610,
+      "wallMs": 1510,
+      "status": "passed",
+      "coverage": {
+        "src/cart.ts": {
+          "lines": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18
+          ],
+          "branches": []
+        }
+      }
+    },
+    {
+      "id": "tests/pricing.test.ts",
+      "file": "tests/pricing.test.ts",
+      "testName": null,
+      "tests": [
+        {
+          "fullName": "applies the launch discount",
+          "status": "passed",
+          "durationMs": 160
+        },
+        {
+          "fullName": "rounds half-up at two decimals",
+          "status": "passed",
+          "durationMs": 160
+        }
+      ],
+      "runtimeMs": 320,
+      "wallMs": 1220,
+      "status": "passed",
+      "coverage": {
+        "src/pricing.ts": {
+          "lines": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28
+          ],
+          "branches": []
+        }
+      }
+    },
+    {
+      "id": "tests/pricing-more.test.ts",
+      "file": "tests/pricing-more.test.ts",
+      "testName": null,
+      "tests": [
+        {
+          "fullName": "discount should be defined",
+          "status": "passed",
+          "durationMs": 300
+        }
+      ],
+      "runtimeMs": 300,
+      "wallMs": 1200,
+      "status": "passed",
+      "coverage": {
+        "src/pricing.ts": {
+          "lines": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15
+          ],
+          "branches": []
+        }
+      }
+    },
+    {
+      "id": "tests/pricing-snapshot.test.ts",
+      "file": "tests/pricing-snapshot.test.ts",
+      "testName": null,
+      "tests": [
+        {
+          "fullName": "matches the pricing table snapshot",
+          "status": "passed",
+          "durationMs": 95
+        }
+      ],
+      "runtimeMs": 95,
+      "wallMs": 995,
+      "status": "passed",
+      "coverage": {
+        "src/pricing.ts": {
+          "lines": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30
+          ],
+          "branches": []
+        },
+        "src/cart.ts": {
+          "lines": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "branches": []
+        }
+      }
+    },
+    {
+      "id": "tests/api.test.ts",
+      "file": "tests/api.test.ts",
+      "testName": null,
+      "tests": [
+        {
+          "fullName": "returns 200 with the profile",
+          "status": "passed",
+          "durationMs": 205
+        },
+        {
+          "fullName": "returns 404 when private",
+          "status": "passed",
+          "durationMs": 205
+        }
+      ],
+      "runtimeMs": 410,
+      "wallMs": 1310,
+      "status": "passed",
+      "coverage": {
+        "src/api.ts": {
+          "lines": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25
+          ],
+          "branches": [
+            "0.0",
+            "0.1"
+          ]
+        }
+      }
+    },
+    {
+      "id": "tests/api-mock.test.ts",
+      "file": "tests/api-mock.test.ts",
+      "testName": null,
+      "tests": [
+        {
+          "fullName": "gets the user from the repo mock",
+          "status": "passed",
+          "durationMs": 380
+        }
+      ],
+      "runtimeMs": 380,
+      "wallMs": 1280,
+      "status": "passed",
+      "coverage": {
+        "src/api.ts": {
+          "lines": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "branches": []
+        }
+      }
+    },
+    {
+      "id": "tests/api-contract.test.ts",
+      "file": "tests/api-contract.test.ts",
+      "testName": null,
+      "tests": [
+        {
+          "fullName": "error body matches the documented shape",
+          "status": "passed",
+          "durationMs": 150
+        }
+      ],
+      "runtimeMs": 150,
+      "wallMs": 1050,
+      "status": "passed",
+      "coverage": {
+        "src/api.ts": {
+          "lines": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12
+          ],
+          "branches": [
+            "0.0"
+          ]
+        }
+      }
+    },
+    {
+      "id": "tests/utils-lodash.test.ts",
+      "file": "tests/utils-lodash.test.ts",
+      "testName": null,
+      "tests": [
+        {
+          "fullName": "sortBy sorts",
+          "status": "passed",
+          "durationMs": 200
+        }
+      ],
+      "runtimeMs": 200,
+      "wallMs": 1100,
+      "status": "passed",
+      "coverage": {
+        "src/api.ts": {
+          "lines": [
+            1,
+            2,
+            3
+          ],
+          "branches": []
+        }
+      }
+    },
+    {
+      "id": "tests/regression-1042.test.ts",
+      "file": "tests/regression-1042.test.ts",
+      "testName": null,
+      "tests": [
+        {
+          "fullName": "issue #1042: empty cart with a stale coupon does not crash",
+          "status": "passed",
+          "durationMs": 45
+        }
+      ],
+      "runtimeMs": 45,
+      "wallMs": 945,
+      "status": "passed",
+      "coverage": {
+        "src/cart.ts": {
+          "lines": [
+            39,
+            40
+          ],
+          "branches": [
+            "1.0"
+          ]
+        }
+      }
+    },
+    {
+      "id": "tests/smoke.test.ts",
+      "file": "tests/smoke.test.ts",
+      "testName": null,
+      "tests": [
+        {
+          "fullName": "app boots",
+          "status": "passed",
+          "durationMs": 70
+        }
+      ],
+      "runtimeMs": 70,
+      "wallMs": 970,
+      "status": "passed",
+      "coverage": {
+        "src/cart.ts": {
+          "lines": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10
+          ],
+          "branches": []
+        },
+        "src/pricing.ts": {
+          "lines": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "branches": []
+        },
+        "src/api.ts": {
+          "lines": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "branches": []
+        }
+      }
+    }
+  ]
+}
