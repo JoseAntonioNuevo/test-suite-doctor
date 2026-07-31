@@ -1,6 +1,6 @@
 {
   "name": "test-suite-doctor",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Agent skill + standalone scripts to audit, minimize, and heal bloated Vitest/Jest test suites — per-test coverage metrics, greedy minimization, AI-slop detection, mutation-score verification.",
   "type": "module",
   "private": true,
@@ -29,6 +29,7 @@
   },
   "devDependencies": {
     "@types/node": "^26.1.2",
+    "@vitest/coverage-v8": "^4.1.10",
     "tsx": "^4.23.1",
     "typescript": "^7.0.2",
     "vitest": "^4.1.10"

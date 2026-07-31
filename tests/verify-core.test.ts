@@ -64,7 +64,9 @@ describe("mutation score", () => {
     expect(s.byStatus["CompileError"]).toBe(1);
   });
 
-  it("treats an empty report as a perfect score rather than dividing by zero", () => {
-    expect(mutationScore({}).score).toBe(100);
+  it("treats an empty report as not applicable rather than a perfect score", () => {
+    expect(mutationScore({})).toEqual(
+      expect.objectContaining({ applicable: false, score: null, detected: 0, undetected: 0 }),
+    );
   });
 });

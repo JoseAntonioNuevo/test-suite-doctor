@@ -13,6 +13,10 @@ measured with per-test coverage data and a greedy minimization algorithm, not
 gut feeling, and verified against coverage retention and (optionally) Stryker
 mutation score.
 
+> **Experimental:** test-suite-doctor is pre-1.0. Review every proposed drop,
+> keep the generated artifacts, and treat incomplete collection as a blocking
+> condition unless every unmeasured unit is explicitly force-kept.
+
 Works with **Claude Code, Codex, Cursor, Grok build, and any agent that can
 read a markdown file and run a CLI** — and with no agent at all: the scripts
 are plain `npx tsx` CLIs you can run by hand or in CI.
@@ -28,14 +32,12 @@ names, hollow 400-line snapshots, implementation-detail tests that break on
 every refactor. The suite gets slower and noisier while its actual
 fault-detection power barely moves.
 
-Research on test suite minimization consistently shows that **85–90%
-reductions are achievable while retaining ~97% of coverage and ~95% of
-fault-detection capability**, using coverage-guided greedy selection with cost
-weighting. Prompting an LLM "delete the bad tests" cannot do this — it has no
-per-test coverage data. Deterministic scripts collect the metrics and compute
-the plan; the agent's judgment is reserved for the two places it is genuinely
-needed: rescuing tests whose value coverage can't see, and writing good
-replacements for what's lost.
+Research shows that coverage-guided minimization can reduce suites, but the
+result varies materially by project and coverage retention is not the same as
+fault-detection retention. The figures in this README are therefore limited to
+the bundled synthetic demo. Deterministic scripts collect the metrics and
+compute the plan; judgment is reserved for rescuing tests whose value coverage
+cannot see and writing good replacements for what is lost.
 
 ## How it works
 
@@ -224,6 +226,7 @@ needs one run per test file, not one per test.
 | `--runtime-budget-ms` | — | Stop before kept runtime exceeds this |
 | `--w-lines` / `--w-branches` | `1` / `1` | Weighted-sum weights |
 | `--keep <regex>` | — | Force-keep matching units (repeatable) |
+| `--keep-unmeasured` | off | Force-keep every incomplete unit and mark the plan unverified |
 
 ### `scripts/verify.ts` — VERIFY
 
@@ -234,8 +237,12 @@ needs one run per test file, not one per test.
 | `--mutation` | off | Also run Stryker (opt-in — mutation testing is slow) |
 | `--mutate <glob>` | — | Module globs to mutate (repeatable) |
 | `--mutation-floor` | `80` | Min mutation score % |
+| `--keep-scratch` | off | Preserve this invocation's unique scratch directory |
 
-Exit codes: `0` pass · `1` floors not met / suite red · `2` environment error.
+Exit codes: `0` usable/pass · `1` suite or quality failure/incomplete collection
+· `2` invalid usage, unavailable tooling, corrupt input, or an unevaluable run.
+Outputs are invalidated before execution and each runner invocation uses a
+fresh scratch directory, so an earlier success cannot be reused accidentally.
 
 ## The algorithm
 
@@ -279,8 +286,9 @@ All artifacts are versioned JSON under `.test-doctor/` (gitignore it):
   REVIEW step and the optional mutation-score verification exist. Don't skip
   them.
 - Tests that depend on execution order or shared state may behave differently
-  in isolated runs; such units show up as `collectionErrors` or `mixed`
-  status in the report and deserve suspicion anyway.
+  in isolated runs. Such units block minimization by default. If
+  `--keep-unmeasured` is used, they are mandatory keeps and the plan remains
+  explicitly unverified until a complete verification run succeeds.
 
 ## Contributing
 

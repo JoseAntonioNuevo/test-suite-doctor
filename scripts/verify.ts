@@ -15,13 +15,20 @@
  *   npx tsx scripts/verify.ts --baseline .test-doctor/report.json
  *   npx tsx scripts/verify.ts --mutation --mutate "src/billing/**" --mutation-floor 80
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync } from "node:fs";
+import { basename, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { parseFraction, parsePercentage, parsePositiveInteger } from "./lib/args.ts";
+import { createInvocationDir, invalidateOutput, writeJsonAtomic } from "./lib/artifacts.ts";
 import { detectRunner } from "./lib/detect.ts";
 import { run } from "./lib/exec.ts";
 import { parseCoverageFinal, type IstanbulFileCoverage } from "./lib/istanbul.ts";
-import { buildRunSpec, parseResultsFile, type JestResultsFile } from "./lib/runner-commands.ts";
+import {
+  buildRunSpec,
+  parseResultsFile,
+  validateRunOutcome,
+  type JestResultsFile,
+} from "./lib/runner-commands.ts";
 import { computeRetention, mutationScore, type MutationReport } from "./lib/verify-core.ts";
 import type { MetricsReport } from "./lib/types.ts";
 
@@ -38,6 +45,7 @@ Options:
   --branch-floor <0..1>     Optional min branch retention vs baseline
   --timeout-ms <n>          Suite run timeout (default: 3600000)
   --scratch <dir>           Scratch dir (default: .test-doctor/tmp)
+  --keep-scratch            Preserve and print this invocation's scratch dir
   --out <file>              JSON verdict (default: .test-doctor/verify.json)
   --mutation                Also run Stryker mutation testing (opt-in, slow)
   --mutate <glob>           Module glob(s) to mutate (repeatable, required
@@ -65,6 +73,7 @@ async function main(): Promise<void> {
       "branch-floor": { type: "string" },
       "timeout-ms": { type: "string", default: "3600000" },
       scratch: { type: "string", default: ".test-doctor/tmp" },
+      "keep-scratch": { type: "boolean", default: false },
       out: { type: "string", default: ".test-doctor/verify.json" },
       mutation: { type: "boolean", default: false },
       mutate: { type: "string", multiple: true, default: [] },
@@ -82,9 +91,30 @@ async function main(): Promise<void> {
   const baselinePath = resolve(cwd, values.baseline!);
   if (!existsSync(baselinePath)) fail(`baseline report not found: ${baselinePath}`);
   const baseline = JSON.parse(readFileSync(baselinePath, "utf8")) as MetricsReport;
-  const coverageFloor = Number(values["coverage-floor"]);
-  const branchFloor = values["branch-floor"] != null ? Number(values["branch-floor"]) : null;
-  const scratchDir = resolve(cwd, values.scratch!);
+  let coverageFloor: number;
+  let branchFloor: number | null;
+  let timeoutMs: number;
+  let mutationFloor: number;
+  let mutationTimeoutMs: number;
+  try {
+    coverageFloor = parseFraction("--coverage-floor", values["coverage-floor"]!);
+    branchFloor =
+      values["branch-floor"] != null
+        ? parseFraction("--branch-floor", values["branch-floor"])
+        : null;
+    timeoutMs = parsePositiveInteger("--timeout-ms", values["timeout-ms"]!);
+    mutationFloor = parsePercentage("--mutation-floor", values["mutation-floor"]!);
+    mutationTimeoutMs = parsePositiveInteger(
+      "--mutation-timeout-ms",
+      values["mutation-timeout-ms"]!,
+    );
+  } catch (error) {
+    fail((error as Error).message);
+  }
+  const scratchParent = resolve(cwd, values.scratch!);
+  const scratchDir = createInvocationDir(scratchParent, "verify");
+  const outPath = resolve(cwd, values.out!);
+  invalidateOutput(outPath);
   const failures: string[] = [];
 
   // --- 1. The suite must be green ------------------------------------------
@@ -98,7 +128,7 @@ async function main(): Promise<void> {
   console.error("running the current suite with coverage…");
   const spec = buildRunSpec(detection.runner, { scratchDir, label: "verify" });
   mkdirSync(join(scratchDir, "verify"), { recursive: true });
-  const res = await run("npx", spec.args, { cwd, timeoutMs: Number(values["timeout-ms"]) });
+  const res = await run("npx", spec.args, { cwd, timeoutMs });
   if (res.timedOut) fail(`suite run exceeded --timeout-ms ${values["timeout-ms"]}`);
   if (!existsSync(spec.resultsFile)) {
     fail(`runner produced no results JSON.\nstderr (tail):\n${res.stderr.slice(-2000)}`);
@@ -106,10 +136,15 @@ async function main(): Promise<void> {
   const results = parseResultsFile(
     JSON.parse(readFileSync(spec.resultsFile, "utf8")) as JestResultsFile,
   );
+  const suiteOutcome = validateRunOutcome(res, results);
   const failed = results.tests.filter((t) => t.status === "failed");
-  if (failed.length > 0) {
-    failures.push(`${failed.length} failing test(s)`);
-    console.error(`✗ ${failed.length} failing test(s):`);
+  if (!suiteOutcome.green && suiteOutcome.kind === "environment-error") {
+    if (!values["keep-scratch"]) rmSync(scratchDir, { recursive: true, force: true });
+    fail(`runner outcome could not be evaluated: ${suiteOutcome.reasons.join("; ")}`);
+  }
+  if (!suiteOutcome.green) {
+    failures.push(...suiteOutcome.reasons);
+    console.error(`✗ suite failed: ${suiteOutcome.reasons.join("; ")}`);
     for (const t of failed.slice(0, 20)) console.error(`   - ${t.fullName}`);
   } else {
     console.error(`✓ suite green: ${results.totalTests} tests passed`);
@@ -117,7 +152,28 @@ async function main(): Promise<void> {
 
   // --- 2. Coverage retention vs baseline -----------------------------------
   const covPath = join(spec.coverageDir, "coverage-final.json");
-  if (!existsSync(covPath)) fail("coverage-final.json missing — is a coverage provider installed?");
+  if (!existsSync(covPath)) {
+    if (suiteOutcome.kind === "test-failure") {
+      writeJsonAtomic(outPath, {
+        version: 1,
+        tool: "test-suite-doctor",
+        createdAt: new Date().toISOString(),
+        pass: false,
+        failures,
+        totalTests: results.totalTests,
+        failedTests: failed.length,
+        lineRetention: null,
+        branchRetention: null,
+        lostByFile: [],
+        mutation: null,
+      });
+      if (values["keep-scratch"]) console.error(`scratch preserved: ${scratchDir}`);
+      else rmSync(scratchDir, { recursive: true, force: true });
+      process.exit(1);
+    }
+    if (!values["keep-scratch"]) rmSync(scratchDir, { recursive: true, force: true });
+    fail("coverage-final.json missing — is a coverage provider installed?");
+  }
   const current = parseCoverageFinal(
     JSON.parse(readFileSync(covPath, "utf8")) as Record<string, IstanbulFileCoverage>,
     cwd,
@@ -149,23 +205,49 @@ async function main(): Promise<void> {
   if (values.mutation) {
     const globs = values.mutate ?? [];
     if (globs.length === 0) fail("--mutation requires at least one --mutate glob");
-    const mutationFloor = Number(values["mutation-floor"]);
+    const reportPath = resolve(cwd, values["mutation-report"]!);
+    const backupPath = `${reportPath}.${basename(scratchDir)}.bak`;
+    const hadPreviousReport = existsSync(reportPath);
+    if (hadPreviousReport) renameSync(reportPath, backupPath);
+    const restorePreviousReport = () => {
+      rmSync(reportPath, { force: true });
+      if (hadPreviousReport && existsSync(backupPath)) renameSync(backupPath, reportPath);
+    };
     console.error(`mutation: npx stryker run --mutate ${globs.join(",")} (this is slow)…`);
     const strykerRes = await run(
       "npx",
       ["stryker", "run", "--mutate", globs.join(","), "--reporters", "json,progress"],
-      { cwd, timeoutMs: Number(values["mutation-timeout-ms"]) },
+      { cwd, timeoutMs: mutationTimeoutMs },
     );
-    if (strykerRes.timedOut) fail("Stryker exceeded --mutation-timeout-ms");
-    const reportPath = resolve(cwd, values["mutation-report"]!);
+    if (strykerRes.timedOut) {
+      restorePreviousReport();
+      fail("Stryker exceeded --mutation-timeout-ms");
+    }
+    if (strykerRes.error || strykerRes.signal || strykerRes.code !== 0) {
+      restorePreviousReport();
+      fail(
+        `Stryker mutation process exited ${strykerRes.code ?? "without a code"}` +
+          (strykerRes.error ? `: ${strykerRes.error}` : ""),
+      );
+    }
     if (!existsSync(reportPath)) {
+      restorePreviousReport();
       fail(
         `Stryker JSON report not found at ${reportPath} — is @stryker-mutator/core installed ` +
           "and configured? Override the location with --mutation-report.\n" +
           `stderr (tail):\n${strykerRes.stderr.slice(-2000)}`,
       );
     }
-    mutation = mutationScore(JSON.parse(readFileSync(reportPath, "utf8")) as MutationReport);
+    try {
+      mutation = mutationScore(JSON.parse(readFileSync(reportPath, "utf8")) as MutationReport);
+    } catch (error) {
+      restorePreviousReport();
+      fail(`Stryker JSON report is malformed: ${(error as Error).message}`);
+    }
+    rmSync(backupPath, { force: true });
+    if (!mutation.applicable || mutation.score == null) {
+      fail("Stryker produced zero scoreable mutants; mutation verification is not applicable");
+    }
     const scoreStr = mutation.score.toFixed(1);
     if (mutation.score < mutationFloor) {
       failures.push(`mutation score ${scoreStr}% below floor ${mutationFloor}%`);
@@ -179,29 +261,22 @@ async function main(): Promise<void> {
   }
 
   // --- Verdict --------------------------------------------------------------
-  const outPath = resolve(cwd, values.out!);
-  mkdirSync(resolve(outPath, ".."), { recursive: true });
-  writeFileSync(
-    outPath,
-    JSON.stringify(
-      {
-        version: 1,
-        tool: "test-suite-doctor",
-        createdAt: new Date().toISOString(),
-        pass: failures.length === 0,
-        failures,
-        totalTests: results.totalTests,
-        failedTests: failed.length,
-        lineRetention: retention.lineRetention,
-        branchRetention: retention.branchRetention,
-        lostByFile: retention.lostByFile.slice(0, 50),
-        mutation,
-      },
-      null,
-      2,
-    ),
-  );
+  writeJsonAtomic(outPath, {
+    version: 1,
+    tool: "test-suite-doctor",
+    createdAt: new Date().toISOString(),
+    pass: failures.length === 0,
+    failures,
+    totalTests: results.totalTests,
+    failedTests: failed.length,
+    lineRetention: retention.lineRetention,
+    branchRetention: retention.branchRetention,
+    lostByFile: retention.lostByFile.slice(0, 50),
+    mutation,
+  });
   console.error(`\nverdict written: ${outPath}`);
+  if (values["keep-scratch"]) console.error(`scratch preserved: ${scratchDir}`);
+  else rmSync(scratchDir, { recursive: true, force: true });
   if (failures.length > 0) {
     console.error(`✗ VERIFY FAILED: ${failures.join("; ")}`);
     process.exit(1);

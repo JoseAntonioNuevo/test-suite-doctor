@@ -16,6 +16,12 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
+import {
+  parseFraction,
+  parseNonNegativeNumber,
+  parsePositiveInteger,
+  parseRegex,
+} from "./lib/args.ts";
 import { minimize } from "./lib/greedy.ts";
 import { renderPlanMarkdown } from "./lib/render.ts";
 import type { MetricsReport } from "./lib/types.ts";
@@ -39,6 +45,7 @@ Options:
   --w-branches <n>         Weight of a newly covered branch (default: 1)
   --keep <regex>           Force-keep units whose id matches (repeatable) —
                            use for contract/regression tests
+  --keep-unmeasured        Force-keep incomplete units instead of refusing
   --help                   Show this help
 
 Exit codes: 0 plan written, 2 environment/usage error.`;
@@ -62,6 +69,7 @@ function main(): void {
       "w-lines": { type: "string", default: "1" },
       "w-branches": { type: "string", default: "1" },
       keep: { type: "string", multiple: true, default: [] },
+      "keep-unmeasured": { type: "boolean", default: false },
       help: { type: "boolean", default: false },
     },
   });
@@ -77,26 +85,67 @@ function main(): void {
   if (report.tool !== "test-suite-doctor" || report.version !== 1) {
     fail(`unrecognized report format in ${reportPath}`);
   }
-  const coverageFloor = Number(values["coverage-floor"]);
-  if (!(coverageFloor > 0 && coverageFloor <= 1)) fail("--coverage-floor must be in (0, 1]");
+  let coverageFloor: number;
+  let branchFloor: number | null;
+  let targetCount: number | null;
+  let runtimeBudgetMs: number | null;
+  let weightLines: number;
+  let weightBranches: number;
+  let forceKeep: RegExp[];
+  try {
+    coverageFloor = parseFraction("--coverage-floor", values["coverage-floor"]!);
+    branchFloor =
+      values["branch-floor"] != null
+        ? parseFraction("--branch-floor", values["branch-floor"])
+        : null;
+    if (coverageFloor === 0 && (branchFloor == null || branchFloor === 0)) {
+      fail("at least one of --coverage-floor or --branch-floor must be positive");
+    }
+    targetCount =
+      values["target-count"] != null
+        ? parsePositiveInteger("--target-count", values["target-count"])
+        : null;
+    runtimeBudgetMs =
+      values["runtime-budget-ms"] != null
+        ? parsePositiveInteger("--runtime-budget-ms", values["runtime-budget-ms"])
+        : null;
+    weightLines = parseNonNegativeNumber("--w-lines", values["w-lines"]!);
+    weightBranches = parseNonNegativeNumber("--w-branches", values["w-branches"]!);
+    if (weightLines === 0 && weightBranches === 0) fail("at least one weight must be positive");
+    forceKeep = (values.keep ?? []).map((pattern) => parseRegex("--keep", pattern));
+  } catch (error) {
+    fail((error as Error).message);
+  }
+
+  const unsafeIds = new Set([
+    ...report.collectionErrors.map((entry) => entry.id),
+    ...report.units.filter((unit) => unit.status !== "passed").map((unit) => unit.id),
+  ]);
+  if (unsafeIds.size > 0 && !values["keep-unmeasured"]) {
+    fail(
+      `report is incomplete (${unsafeIds.size} collectionErrors/non-passed units); ` +
+        "fix collection or pass --keep-unmeasured to force-keep them",
+    );
+  }
+  if (values["keep-unmeasured"]) {
+    for (const id of unsafeIds) forceKeep.push(new RegExp(`^${id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`));
+  }
 
   const plan = minimize(report.units, report.baselineCoverage, {
     coverageFloor,
-    branchFloor: values["branch-floor"] != null ? Number(values["branch-floor"]) : null,
-    targetCount: values["target-count"] != null ? Number(values["target-count"]) : null,
+    branchFloor,
+    targetCount,
     strictCount: values["strict-count"]!,
-    runtimeBudgetMs:
-      values["runtime-budget-ms"] != null ? Number(values["runtime-budget-ms"]) : null,
-    weightLines: Number(values["w-lines"]),
-    weightBranches: Number(values["w-branches"]),
-    forceKeep: (values.keep ?? []).map((p) => {
-      try {
-        return new RegExp(p);
-      } catch {
-        return fail(`invalid --keep regex: ${p}`);
-      }
-    }),
+    runtimeBudgetMs,
+    weightLines,
+    weightBranches,
+    forceKeep,
   });
+  if (unsafeIds.size > 0) {
+    plan.summary.warnings.unshift(
+      `${unsafeIds.size} unsafe/unmeasured unit(s) were force-kept; this plan is unverified.`,
+    );
+  }
 
   const planPath = resolve(values["out-plan"]!);
   const mdPath = resolve(values["out-md"]!);

@@ -46,8 +46,9 @@ export interface MutationReport {
 }
 
 export interface MutationScore {
+  applicable: boolean;
   /** Percentage 0–100, Stryker's definition: detected / (detected + undetected). */
-  score: number;
+  score: number | null;
   detected: number;
   undetected: number;
   byStatus: Record<string, number>;
@@ -69,5 +70,11 @@ export function mutationScore(report: MutationReport): MutationScore {
     }
   }
   const valid = detected + undetected;
-  return { score: valid === 0 ? 100 : (detected / valid) * 100, detected, undetected, byStatus };
+  return {
+    applicable: valid > 0,
+    score: valid === 0 ? null : (detected / valid) * 100,
+    detected,
+    undetected,
+    byStatus,
+  };
 }

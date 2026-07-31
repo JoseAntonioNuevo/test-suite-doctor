@@ -68,9 +68,17 @@ export function buildRunSpec(
 
 /** Jest-format results file (Vitest's json reporter emits the same shape). */
 export interface JestResultsFile {
+  success?: boolean;
+  numFailedTests?: number;
+  numFailedTestSuites?: number;
+  numRuntimeErrorTestSuites?: number;
+  numPassedTests?: number;
+  numPendingTests?: number;
+  numTodoTests?: number;
   numTotalTests?: number;
   testResults?: {
     name?: string;
+    status?: string;
     message?: string;
     assertionResults?: {
       fullName?: string;
@@ -86,6 +94,10 @@ export interface ParsedResults {
   /** Absolute test file paths as reported by the runner. */
   files: string[];
   totalTests: number;
+  success: boolean | null;
+  failedTests: number;
+  failedSuites: number;
+  runtimeErrorSuites: number;
 }
 
 export function parseResultsFile(raw: JestResultsFile): ParsedResults {
@@ -101,7 +113,63 @@ export function parseResultsFile(raw: JestResultsFile): ParsedResults {
       });
     }
   }
-  return { tests, files, totalTests: raw.numTotalTests ?? tests.length };
+  return {
+    tests,
+    files,
+    totalTests: raw.numTotalTests ?? tests.length,
+    success: typeof raw.success === "boolean" ? raw.success : null,
+    failedTests:
+      raw.numFailedTests ?? tests.filter((test) => test.status === "failed").length,
+    failedSuites:
+      raw.numFailedTestSuites ??
+      (raw.testResults ?? []).filter((result) => result.status === "failed").length,
+    runtimeErrorSuites: raw.numRuntimeErrorTestSuites ?? 0,
+  };
+}
+
+export interface ProcessOutcome {
+  code: number | null;
+  signal: NodeJS.Signals | null;
+  error: string | null;
+  timedOut: boolean;
+}
+
+export interface ValidatedRunOutcome {
+  green: boolean;
+  kind: "passed" | "test-failure" | "environment-error";
+  reasons: string[];
+}
+
+export function validateRunOutcome(
+  process: ProcessOutcome,
+  results: ParsedResults,
+): ValidatedRunOutcome {
+  const reasons: string[] = [];
+  if (process.timedOut) reasons.push("process timed out");
+  if (process.error) reasons.push(`spawn failed: ${process.error}`);
+  if (process.signal) reasons.push(`process terminated by ${process.signal}`);
+  if (process.code !== 0) reasons.push(`process exited ${process.code ?? "without a code"}`);
+  if (results.success === false) reasons.push("suite summary reported failure");
+  if (results.failedTests > 0) reasons.push(`${results.failedTests} failed test(s)`);
+  if (results.failedSuites > 0) reasons.push(`${results.failedSuites} failed suite(s)`);
+  if (results.runtimeErrorSuites > 0) {
+    reasons.push(`${results.runtimeErrorSuites} runtime-error suite(s)`);
+  }
+  if (results.tests.some((test) => test.status === "failed")) {
+    reasons.push("assertion results contain failures");
+  }
+  if (results.totalTests <= 0 || results.tests.length === 0) {
+    reasons.push("suite executed no tests");
+    return { green: false, kind: "environment-error", reasons };
+  }
+  if (reasons.length === 0) return { green: true, kind: "passed", reasons };
+  const hasTestFailure =
+    results.success === false ||
+    results.failedTests > 0 ||
+    results.failedSuites > 0 ||
+    results.runtimeErrorSuites > 0 ||
+    results.tests.some((test) => test.status === "failed");
+  return { green: false, kind: hasTestFailure ? "test-failure" : "environment-error", reasons };
 }
 
 /** Escape a test name so `-t` matches it exactly (both runners treat -t as a regex). */

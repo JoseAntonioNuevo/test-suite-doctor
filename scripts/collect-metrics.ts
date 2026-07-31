@@ -10,9 +10,11 @@
  * Standalone usage (no skill system required):
  *   npx tsx scripts/collect-metrics.ts --cwd /path/to/repo
  */
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { parsePositiveInteger, parseRegex } from "./lib/args.ts";
+import { createInvocationDir, invalidateOutput, writeJsonAtomic } from "./lib/artifacts.ts";
 import { detectRunner } from "./lib/detect.ts";
 import { pool, run } from "./lib/exec.ts";
 import { parseCoverageFinal, type IstanbulFileCoverage } from "./lib/istanbul.ts";
@@ -20,6 +22,7 @@ import {
   buildRunSpec,
   exactNamePattern,
   parseResultsFile,
+  validateRunOutcome,
   type JestResultsFile,
 } from "./lib/runner-commands.ts";
 import type { Granularity, MetricsReport, TestCaseInfo, UnitMetrics } from "./lib/types.ts";
@@ -47,6 +50,11 @@ Exit codes: 0 report written, 2 environment/usage error.`;
 function fail(msg: string): never {
   console.error(`\ncollect-metrics: ${msg}`);
   process.exit(2);
+}
+
+function failQuality(msg: string): never {
+  console.error(`\ncollect-metrics: ${msg}`);
+  process.exit(1);
 }
 
 function readJson<T>(path: string, what: string, stderr: string): T {
@@ -87,12 +95,23 @@ async function main(): Promise<void> {
   const cwd = resolve(values.cwd!);
   const granularity = values.granularity as Granularity;
   if (granularity !== "file" && granularity !== "test") fail("--granularity must be file or test");
-  const scratchDir = resolve(cwd, values.scratch!);
   const outFile = resolve(cwd, values.out!);
-  const unitTimeout = Number(values["timeout-ms"]);
-  const baselineTimeout = Number(values["baseline-timeout-ms"]);
-  const concurrency = Number(values.concurrency);
-  const filter = values.filter ? new RegExp(values.filter) : null;
+  let unitTimeout: number;
+  let baselineTimeout: number;
+  let concurrency: number;
+  let filter: RegExp | null;
+  try {
+    unitTimeout = parsePositiveInteger("--timeout-ms", values["timeout-ms"]!);
+    baselineTimeout = parsePositiveInteger(
+      "--baseline-timeout-ms",
+      values["baseline-timeout-ms"]!,
+    );
+    concurrency = parsePositiveInteger("--concurrency", values.concurrency!);
+    filter = values.filter ? parseRegex("--filter", values.filter) : null;
+  } catch (error) {
+    fail((error as Error).message);
+  }
+  invalidateOutput(outFile);
 
   let detection;
   try {
@@ -102,7 +121,7 @@ async function main(): Promise<void> {
   }
   const { runner } = detection;
   console.error(`runner: ${runner} (${detection.reason})`);
-  mkdirSync(scratchDir, { recursive: true });
+  const scratchDir = createInvocationDir(resolve(cwd, values.scratch!), "collect");
 
   // --- Baseline: one whole-suite run with coverage --------------------------
   console.error("baseline: running the full suite with coverage (this is the slow part)…");
@@ -113,12 +132,24 @@ async function main(): Promise<void> {
   const baseResults = parseResultsFile(
     readJson<JestResultsFile>(baseSpec.resultsFile, "baseline results JSON", baseRes.stderr),
   );
+  const baseOutcome = validateRunOutcome(baseRes, baseResults);
+  if (!baseOutcome.green) {
+    if (!values["keep-scratch"]) rmSync(scratchDir, { recursive: true, force: true });
+    if (baseOutcome.kind === "test-failure") {
+      failQuality(`baseline failed: ${baseOutcome.reasons.join("; ")}`);
+    }
+    fail(`baseline could not be evaluated: ${baseOutcome.reasons.join("; ")}`);
+  }
   const baseCovRaw = readJson<Record<string, IstanbulFileCoverage>>(
     join(baseSpec.coverageDir, "coverage-final.json"),
     "baseline coverage-final.json (is a coverage provider installed? e.g. @vitest/coverage-v8)",
     baseRes.stderr,
   );
   const baseCov = parseCoverageFinal(baseCovRaw, cwd);
+  if (baseCov.totals.coveredLines === 0) {
+    if (!values["keep-scratch"]) rmSync(scratchDir, { recursive: true, force: true });
+    fail("baseline coverage is empty — check the coverage provider and include configuration");
+  }
   const totalRuntimeMs = baseResults.tests.reduce((s, t) => s + t.durationMs, 0);
   console.error(
     `baseline: ${baseResults.totalTests} tests in ${baseResults.files.length} files, ` +
@@ -179,6 +210,8 @@ async function main(): Promise<void> {
       const results = parseResultsFile(
         readJson<JestResultsFile>(runSpec.resultsFile, "results JSON", res.stderr),
       );
+      const outcome = validateRunOutcome(res, results);
+      if (!outcome.green) throw new Error(outcome.reasons.join("; "));
       const covPath = join(runSpec.coverageDir, "coverage-final.json");
       const cov = existsSync(covPath)
         ? parseCoverageFinal(
@@ -238,8 +271,7 @@ async function main(): Promise<void> {
     collectionErrors,
     units,
   };
-  mkdirSync(resolve(outFile, ".."), { recursive: true });
-  writeFileSync(outFile, JSON.stringify(report, null, 2));
+  writeJsonAtomic(outFile, report);
 
   const slowest = [...units].sort((a, b) => b.runtimeMs - a.runtimeMs).slice(0, 5);
   console.error(`\nreport written: ${outFile}`);
@@ -251,7 +283,10 @@ async function main(): Promise<void> {
   }
   console.error("slowest units:");
   for (const u of slowest) console.error(`   ${Math.round(u.runtimeMs)}ms  ${u.id}`);
+  if (values["keep-scratch"]) console.error(`scratch preserved: ${scratchDir}`);
+  else rmSync(scratchDir, { recursive: true, force: true });
   console.error("\nnext: npx tsx scripts/minimize.ts --report " + relative(process.cwd(), outFile));
+  if (collectionErrors.length > 0) process.exit(1);
 }
 
 main().catch((err) => fail((err as Error).stack ?? String(err)));

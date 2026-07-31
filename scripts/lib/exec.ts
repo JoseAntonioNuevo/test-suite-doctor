@@ -2,6 +2,8 @@ import { spawn } from "node:child_process";
 
 export interface ExecResult {
   code: number | null;
+  signal: NodeJS.Signals | null;
+  error: string | null;
   timedOut: boolean;
   stdout: string;
   stderr: string;
@@ -35,13 +37,26 @@ export function run(
       child.kill("SIGTERM");
       setTimeout(() => child.kill("SIGKILL"), 5000).unref();
     }, opts.timeoutMs);
+    let settled = false;
+    const finish = (result: ExecResult) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(result);
+    };
     child.on("error", (err) => {
-      clearTimeout(timer);
-      resolve({ code: null, timedOut, stdout, stderr: `${stderr}\n${err.message}`, wallMs: Date.now() - started });
+      finish({
+        code: null,
+        signal: null,
+        error: err.message,
+        timedOut,
+        stdout,
+        stderr: `${stderr}\n${err.message}`,
+        wallMs: Date.now() - started,
+      });
     });
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      resolve({ code, timedOut, stdout, stderr, wallMs: Date.now() - started });
+    child.on("close", (code, signal) => {
+      finish({ code, signal, error: null, timedOut, stdout, stderr, wallMs: Date.now() - started });
     });
   });
 }
