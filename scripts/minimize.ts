@@ -24,7 +24,8 @@ import {
 } from "./lib/args.ts";
 import { minimize } from "./lib/greedy.ts";
 import { renderPlanMarkdown } from "./lib/render.ts";
-import type { MetricsReport } from "./lib/types.ts";
+import { normalizeMetricsReport } from "./lib/report-loader.ts";
+import { selectOptimizationCost, type CostModel } from "./lib/timing.ts";
 
 const HELP = `minimize — coverage-guided greedy test suite minimization
 
@@ -41,6 +42,7 @@ Options:
                            wins unless --strict-count is set
   --strict-count           Hard-stop at --target-count even below the floor
   --runtime-budget-ms <n>  Stop before kept runtime exceeds this budget
+  --cost-model <model>     auto | assertion | wall (default: auto)
   --w-lines <n>            Weight of a newly covered line (default: 1)
   --w-branches <n>         Weight of a newly covered branch (default: 1)
   --keep <regex>           Force-keep units whose id matches (repeatable) —
@@ -66,6 +68,7 @@ function main(): void {
       "target-count": { type: "string" },
       "strict-count": { type: "boolean", default: false },
       "runtime-budget-ms": { type: "string" },
+      "cost-model": { type: "string", default: "auto" },
       "w-lines": { type: "string", default: "1" },
       "w-branches": { type: "string", default: "1" },
       keep: { type: "string", multiple: true, default: [] },
@@ -81,10 +84,13 @@ function main(): void {
   if (!existsSync(reportPath)) {
     fail(`report not found: ${reportPath} — run collect-metrics.ts first (metrics before opinions).`);
   }
-  const report = JSON.parse(readFileSync(reportPath, "utf8")) as MetricsReport;
-  if (report.tool !== "test-suite-doctor" || report.version !== 1) {
-    fail(`unrecognized report format in ${reportPath}`);
+  let normalized;
+  try {
+    normalized = normalizeMetricsReport(JSON.parse(readFileSync(reportPath, "utf8")));
+  } catch (error) {
+    fail(`${(error as Error).message} in ${reportPath}`);
   }
+  const report = normalized.report;
   let coverageFloor: number;
   let branchFloor: number | null;
   let targetCount: number | null;
@@ -92,6 +98,7 @@ function main(): void {
   let weightLines: number;
   let weightBranches: number;
   let forceKeep: RegExp[];
+  let costModel: CostModel;
   try {
     coverageFloor = parseFraction("--coverage-floor", values["coverage-floor"]!);
     branchFloor =
@@ -113,6 +120,14 @@ function main(): void {
     weightBranches = parseNonNegativeNumber("--w-branches", values["w-branches"]!);
     if (weightLines === 0 && weightBranches === 0) fail("at least one weight must be positive");
     forceKeep = (values.keep ?? []).map((pattern) => parseRegex("--keep", pattern));
+    if (
+      values["cost-model"] !== "auto" &&
+      values["cost-model"] !== "assertion" &&
+      values["cost-model"] !== "wall"
+    ) {
+      fail("--cost-model must be auto, assertion, or wall");
+    }
+    costModel = values["cost-model"];
   } catch (error) {
     fail((error as Error).message);
   }
@@ -131,7 +146,11 @@ function main(): void {
     for (const id of unsafeIds) forceKeep.push(new RegExp(`^${id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`));
   }
 
-  const plan = minimize(report.units, report.baselineCoverage, {
+  const costedUnits = report.units.map((unit) => ({
+    ...unit,
+    ...selectOptimizationCost(unit, report.granularity, costModel),
+  }));
+  const plan = minimize(costedUnits, report.baselineCoverage, {
     coverageFloor,
     branchFloor,
     targetCount,
@@ -146,6 +165,20 @@ function main(): void {
       `${unsafeIds.size} unsafe/unmeasured unit(s) were force-kept; this plan is unverified.`,
     );
   }
+  if (normalized.legacy) {
+    plan.summary.warnings.unshift(
+      "Legacy v1 metrics lack provenance; this plan is legacy-unverified.",
+    );
+  }
+  plan.sourceReport = {
+    version: normalized.sourceVersion,
+    runId: report.runId,
+    legacy: normalized.legacy,
+    fingerprint: normalized.legacy ? null : report.provenance.fingerprint,
+  };
+  plan.scope = report.scope;
+  plan.provenance = report.provenance;
+  plan.trusted = !normalized.legacy && unsafeIds.size === 0;
 
   const planPath = resolve(values["out-plan"]!);
   const mdPath = resolve(values["out-md"]!);

@@ -9,12 +9,12 @@ on:
   pull_request:
 
 jobs:
-  test:
+  quality:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
       matrix:
-        node-version: [20, 22]
+        node-version: [22, 24, 26]
     steps:
       - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
         with:
@@ -28,8 +28,45 @@ jobs:
       - run: npm test
       - name: Demo pipeline smoke test
         run: |
-          npx tsx examples/make-demo.ts
-          npx tsx scripts/minimize.ts --report examples/demo-report.json \
+          npx --no-install tsx examples/make-demo.ts
+          npx --no-install tsx scripts/minimize.ts --report examples/demo-report.json \
             --out-plan /tmp/demo-plan.json --out-md /tmp/demo-plan.md \
             --coverage-floor 0.97 --keep regression
           node -e "const p=require('/tmp/demo-plan.json'); if(p.summary.lineRetention<0.97) process.exit(1)"
+
+  runner-integration:
+    name: Runner integration (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test -- tests/collect-integration.test.ts tests/verify-integration.test.ts tests/jest-integration.test.ts
+
+  dogfood:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Collect, minimize, and verify this repository
+        run: |
+          node --import tsx scripts/collect-metrics.ts --cwd .
+          node --import tsx scripts/minimize.ts --report .test-doctor/report.json
+          node --import tsx scripts/verify.ts --baseline .test-doctor/report.json

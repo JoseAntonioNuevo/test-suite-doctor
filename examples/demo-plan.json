@@ -1,7 +1,7 @@
 {
-  "version": 1,
+  "version": 2,
   "tool": "test-suite-doctor",
-  "createdAt": "2026-07-31T09:56:27.013Z",
+  "createdAt": "2026-07-31T12:20:59.774Z",
   "granularity": "file",
   "options": {
     "coverageFloor": 0.97,
@@ -36,83 +36,174 @@
       "newLines": 2,
       "newBranches": 1,
       "runtimeMs": 45,
-      "cumulativeLineRetention": 0.0211
+      "cumulativeLineRetention": 0.0211,
+      "cumulativeBranchRetention": 0.2
     },
     {
       "id": "tests/pricing-snapshot.test.ts",
-      "reason": "+35 lines, +0 branches for 95ms",
+      "reason": "+35 lines, +0 branches for 95ms estimated",
       "newLines": 35,
       "newBranches": 0,
       "runtimeMs": 95,
-      "cumulativeLineRetention": 0.3895
+      "cumulativeLineRetention": 0.3895,
+      "cumulativeBranchRetention": 0.2
     },
     {
       "id": "tests/smoke.test.ts",
-      "reason": "+10 lines, +0 branches for 70ms",
+      "reason": "+10 lines, +0 branches for 70ms estimated",
       "newLines": 10,
       "newBranches": 0,
       "runtimeMs": 70,
-      "cumulativeLineRetention": 0.4947
+      "cumulativeLineRetention": 0.4947,
+      "cumulativeBranchRetention": 0.2
     },
     {
       "id": "tests/api.test.ts",
-      "reason": "+20 lines, +2 branches for 410ms",
+      "reason": "+20 lines, +2 branches for 410ms estimated",
       "newLines": 20,
       "newBranches": 2,
       "runtimeMs": 410,
-      "cumulativeLineRetention": 0.7053
+      "cumulativeLineRetention": 0.7053,
+      "cumulativeBranchRetention": 0.6
     },
     {
       "id": "tests/cart.test.ts",
-      "reason": "+28 lines, +2 branches for 850ms",
+      "reason": "+28 lines, +2 branches for 850ms estimated",
       "newLines": 28,
       "newBranches": 2,
       "runtimeMs": 850,
-      "cumulativeLineRetention": 1
+      "cumulativeLineRetention": 1,
+      "cumulativeBranchRetention": 1
     }
   ],
   "drop": [
     {
       "id": "tests/api-contract.test.ts",
       "residualLines": 0,
+      "residualBranches": 0,
       "bestOverlapWith": "tests/api.test.ts",
-      "reason": "adds no line coverage beyond the kept set"
+      "bestLineOverlapWith": "tests/api.test.ts",
+      "bestLineOverlapCount": 12,
+      "bestBranchOverlapWith": "tests/api.test.ts",
+      "bestBranchOverlapCount": 1,
+      "reason": "adds no line or branch coverage beyond the kept set"
     },
     {
       "id": "tests/api-mock.test.ts",
       "residualLines": 0,
+      "residualBranches": 0,
       "bestOverlapWith": "tests/api.test.ts",
-      "reason": "adds no line coverage beyond the kept set"
+      "bestLineOverlapWith": "tests/api.test.ts",
+      "bestLineOverlapCount": 6,
+      "bestBranchOverlapWith": null,
+      "bestBranchOverlapCount": 0,
+      "reason": "adds no line or branch coverage beyond the kept set"
     },
     {
       "id": "tests/cart-extra.test.ts",
       "residualLines": 0,
+      "residualBranches": 0,
       "bestOverlapWith": "tests/cart.test.ts",
-      "reason": "adds no line coverage beyond the kept set"
+      "bestLineOverlapWith": "tests/cart.test.ts",
+      "bestLineOverlapCount": 20,
+      "bestBranchOverlapWith": null,
+      "bestBranchOverlapCount": 0,
+      "reason": "adds no line or branch coverage beyond the kept set"
     },
     {
       "id": "tests/cart-should-work-2.test.ts",
       "residualLines": 0,
+      "residualBranches": 0,
       "bestOverlapWith": "tests/cart.test.ts",
-      "reason": "adds no line coverage beyond the kept set"
+      "bestLineOverlapWith": "tests/cart.test.ts",
+      "bestLineOverlapCount": 18,
+      "bestBranchOverlapWith": null,
+      "bestBranchOverlapCount": 0,
+      "reason": "adds no line or branch coverage beyond the kept set"
     },
     {
       "id": "tests/pricing-more.test.ts",
       "residualLines": 0,
+      "residualBranches": 0,
       "bestOverlapWith": "tests/pricing-snapshot.test.ts",
-      "reason": "adds no line coverage beyond the kept set"
+      "bestLineOverlapWith": "tests/pricing-snapshot.test.ts",
+      "bestLineOverlapCount": 15,
+      "bestBranchOverlapWith": null,
+      "bestBranchOverlapCount": 0,
+      "reason": "adds no line or branch coverage beyond the kept set"
     },
     {
       "id": "tests/pricing.test.ts",
       "residualLines": 0,
+      "residualBranches": 0,
       "bestOverlapWith": "tests/pricing-snapshot.test.ts",
-      "reason": "adds no line coverage beyond the kept set"
+      "bestLineOverlapWith": "tests/pricing-snapshot.test.ts",
+      "bestLineOverlapCount": 28,
+      "bestBranchOverlapWith": null,
+      "bestBranchOverlapCount": 0,
+      "reason": "adds no line or branch coverage beyond the kept set"
     },
     {
       "id": "tests/utils-lodash.test.ts",
       "residualLines": 0,
+      "residualBranches": 0,
       "bestOverlapWith": "tests/api.test.ts",
-      "reason": "adds no line coverage beyond the kept set"
+      "bestLineOverlapWith": "tests/api.test.ts",
+      "bestLineOverlapCount": 3,
+      "bestBranchOverlapWith": null,
+      "bestBranchOverlapCount": 0,
+      "reason": "adds no line or branch coverage beyond the kept set"
     }
-  ]
+  ],
+  "sourceReport": {
+    "version": 2,
+    "runId": "demo-synthetic",
+    "legacy": false,
+    "fingerprint": "synthetic-demo"
+  },
+  "scope": {
+    "mode": "full",
+    "filter": null,
+    "testFiles": [
+      "tests/cart.test.ts",
+      "tests/cart-extra.test.ts",
+      "tests/cart-should-work-2.test.ts",
+      "tests/pricing.test.ts",
+      "tests/pricing-more.test.ts",
+      "tests/pricing-snapshot.test.ts",
+      "tests/api.test.ts",
+      "tests/api-mock.test.ts",
+      "tests/api-contract.test.ts",
+      "tests/utils-lodash.test.ts",
+      "tests/regression-1042.test.ts",
+      "tests/smoke.test.ts"
+    ]
+  },
+  "provenance": {
+    "fingerprint": "synthetic-demo",
+    "coveredSources": {
+      "src/cart.ts": null,
+      "src/pricing.ts": null,
+      "src/api.ts": null
+    },
+    "configuration": {},
+    "runtime": {
+      "runner": {
+        "name": "vitest",
+        "version": "synthetic",
+        "executable": "synthetic"
+      },
+      "coverageProvider": {
+        "name": "@vitest/coverage-v8",
+        "version": "synthetic"
+      }
+    },
+    "git": {
+      "commit": null,
+      "branch": null,
+      "dirty": null,
+      "diffHash": null
+    }
+  },
+  "trusted": true
 }

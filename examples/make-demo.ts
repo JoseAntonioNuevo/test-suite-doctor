@@ -31,12 +31,18 @@ function unit(
     id,
     file: id,
     testName: null,
+    identity: { file: id, testName: null },
+    memberCount: testNames.length,
     tests: testNames.map((fullName) => ({
       fullName,
       status: "passed",
       durationMs: Math.round(runtimeMs / testNames.length),
     })),
     runtimeMs,
+    assertionMs: runtimeMs,
+    fileMs: runtimeMs,
+    optimizationMs: runtimeMs,
+    costSource: "runner-file",
     wallMs: runtimeMs + 900,
     status: "passed",
     coverage: cov,
@@ -99,15 +105,37 @@ const coveredLines = Object.values(baselineCoverage).reduce((s, c) => s + c.line
 const coveredBranches = Object.values(baselineCoverage).reduce((s, c) => s + c.branches.length, 0);
 
 const report: MetricsReport = {
-  version: 1,
+  version: 2,
   tool: "test-suite-doctor",
+  toolVersion: "0.2.0",
+  runId: "demo-synthetic",
   createdAt: "2026-07-31T00:00:00.000Z",
   cwd: "/demo/shop",
   runner: "vitest",
   granularity: "file",
+  options: { synthetic: true },
+  scope: { mode: "full", filter: null, testFiles: units.map((unit) => unit.file) },
+  environment: {
+    node: "synthetic",
+    platform: process.platform,
+    arch: process.arch,
+    runner: { name: "vitest", version: "synthetic", executable: "synthetic" },
+    coverageProvider: { name: "@vitest/coverage-v8", version: "synthetic" },
+  },
+  provenance: {
+    fingerprint: "synthetic-demo",
+    coveredSources: Object.fromEntries(Object.keys(baselineCoverage).map((file) => [file, null])),
+    configuration: {},
+    runtime: {
+      runner: { name: "vitest", version: "synthetic", executable: "synthetic" },
+      coverageProvider: { name: "@vitest/coverage-v8", version: "synthetic" },
+    },
+    git: { commit: null, branch: null, dirty: null, diffHash: null },
+  },
   baseline: {
     totalTests: units.reduce((s, u) => s + u.tests.length, 0),
     totalRuntimeMs: units.reduce((s, u) => s + u.runtimeMs, 0),
+    wallMs: units.reduce((s, u) => s + u.wallMs, 0),
     coveredLines,
     totalLines: coveredLines + 8, // a few lines nothing covers
     coveredBranches,

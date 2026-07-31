@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/JoseAntonioNuevo/test-suite-doctor/schemas/verdict-v2.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "tool", "toolVersion", "runId", "createdAt", "outcome", "pass", "trusted", "failures", "reasonCodes", "scope", "provenance", "suite", "totalTests", "failedTests", "lineRetention", "branchRetention", "lostByFile", "mutation"],
+  "properties": {
+    "version": { "const": 2 }, "tool": { "const": "test-suite-doctor" },
+    "toolVersion": { "type": "string" }, "runId": { "type": "string" }, "createdAt": { "type": "string" },
+    "outcome": { "enum": ["passed", "failed", "error"] }, "pass": { "type": "boolean" }, "trusted": { "type": "boolean" },
+    "failures": { "type": "array", "items": { "type": "string" } },
+    "reasonCodes": { "type": "array", "items": { "type": "string" } },
+    "scope": {
+      "type": "object", "additionalProperties": false, "required": ["mode", "filter", "testFiles"],
+      "properties": {
+        "mode": { "enum": ["full", "filtered"] }, "filter": { "type": ["string", "null"] },
+        "testFiles": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+      }
+    },
+    "provenance": {
+      "type": "object", "additionalProperties": false,
+      "required": ["baselineFingerprint", "currentFingerprint", "mismatches", "overridden"],
+      "properties": {
+        "baselineFingerprint": { "type": "string" }, "currentFingerprint": { "type": "string" },
+        "mismatches": { "type": "array" }, "overridden": { "type": "boolean" }
+      }
+    },
+    "suite": {
+      "type": "object", "additionalProperties": false, "required": ["outcome", "wallMs"],
+      "properties": { "outcome": { "type": "object" }, "wallMs": { "type": "number", "minimum": 0 } }
+    },
+    "totalTests": { "type": "integer", "minimum": 0 }, "failedTests": { "type": "integer", "minimum": 0 },
+    "lineRetention": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+    "branchRetention": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+    "absoluteLineCoverage": { "type": "number", "minimum": 0, "maximum": 1 },
+    "absoluteBranchCoverage": { "type": "number", "minimum": 0, "maximum": 1 },
+    "lostByFile": { "type": "array" },
+    "mutation": { "type": ["object", "null"] }
+  }
+}

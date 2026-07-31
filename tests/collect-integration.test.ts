@@ -28,7 +28,7 @@ function fixture(testSource: string): string {
   return dir;
 }
 
-function collect(dir: string) {
+function collect(dir: string, extraArgs: string[] = []) {
   return spawnSync(
     process.execPath,
     [
@@ -45,6 +45,7 @@ function collect(dir: string) {
       "1",
       "--timeout-ms",
       "30000",
+      ...extraArgs,
       "--baseline-timeout-ms",
       "30000",
     ],
@@ -96,5 +97,60 @@ describe("collector integration safety", () => {
       expect.objectContaining({ id: "a.test.ts", reason: expect.stringMatching(/fail|exit|suite/i) }),
     ]);
     expect(report.units[0]).toEqual(expect.objectContaining({ status: "error" }));
+  });
+
+  it("builds a scoped baseline from only files matching --filter", () => {
+    const dir = fixture(
+      [
+        'import { expect, it } from "vitest";',
+        'import { value } from "./src/a.ts";',
+        'it("core", () => expect(value).toBe(1));',
+      ].join("\n"),
+    );
+    writeFileSync(join(dir, "src/excluded.ts"), "export const excluded = 2;\n");
+    writeFileSync(
+      join(dir, "excluded.test.ts"),
+      [
+        'import { expect, it } from "vitest";',
+        'import { excluded } from "./src/excluded.ts";',
+        'it("excluded", () => expect(excluded).toBe(2));',
+      ].join("\n"),
+    );
+
+    const result = collect(dir, ["--filter", "a\\.test\\.ts$"]);
+    expect(result.status).toBe(0);
+    const report = JSON.parse(readFileSync(join(dir, "report.json"), "utf8"));
+    expect(report.version).toBe(2);
+    expect(report.scope).toEqual({ mode: "filtered", filter: "a\\.test\\.ts$", testFiles: ["a.test.ts"] });
+    expect(Object.keys(report.baselineCoverage)).toContain("src/a.ts");
+    expect(Object.keys(report.baselineCoverage)).not.toContain("src/excluded.ts");
+    expect(report.units.map((unit: { file: string }) => unit.file)).toEqual(["a.test.ts"]);
+    expect(report.units[0].fileMs).toBeGreaterThanOrEqual(0);
+    expect(report.units[0].assertionMs).toBeGreaterThanOrEqual(0);
+    expect(report.units[0].wallMs).toBeGreaterThanOrEqual(report.units[0].fileMs);
+  });
+
+  it("groups duplicate full names in one file into an inseparable test unit", () => {
+    const dir = fixture(
+      [
+        'import { expect, it } from "vitest";',
+        'import { value } from "./src/a.ts";',
+        'it("duplicate", () => expect(value).toBe(1));',
+        'it("duplicate", () => expect(value).toBe(1));',
+      ].join("\n"),
+    );
+
+    const result = collect(dir, ["--granularity", "test"]);
+    expect(result.status).toBe(0);
+    const report = JSON.parse(readFileSync(join(dir, "report.json"), "utf8"));
+    expect(report.units).toHaveLength(1);
+    expect(report.units[0]).toEqual(
+      expect.objectContaining({
+        identity: { file: "a.test.ts", testName: "duplicate" },
+        memberCount: 2,
+        status: "passed",
+      }),
+    );
+    expect(report.units[0].tests).toHaveLength(2);
   });
 });

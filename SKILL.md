@@ -27,7 +27,7 @@ coverage — measured, not guessed.
 
 ## Requirements check (do this first)
 
-- Node.js ≥ 20 and a package.json using Vitest or Jest
+- Node.js ≥ 22 and a package.json using a locally installed Vitest or Jest
   (`npx tsx scripts/collect-metrics.ts --help` from this skill's directory).
 - A coverage provider must be installed (Vitest: `@vitest/coverage-v8`;
   Jest has one built in). If missing, offer to install it as a dev dependency.
@@ -57,7 +57,12 @@ runtime. Writes `.test-doctor/report.json`.
   already-reduced suites, or scoped with `--filter`).
 - On a 2,000-test suite this takes a while; run it in the background and
   report progress. Take `collectionErrors` in the report seriously — those
-  units contribute no coverage and will all land in the drop list.
+  units block minimization by default. If the user explicitly chooses
+  `--keep-unmeasured`, every affected unit is a mandatory keep and the plan is
+  marked untrusted.
+- `--filter` creates a deliberately scoped baseline: collection, minimization,
+  and verification cover only matching test files. State that scope in every
+  recommendation; it is not a whole-repository guarantee.
 
 ### 2. MINIMIZE (script)
 
@@ -119,6 +124,12 @@ more tests, or restore deletions); exit 2 = environment problem, stop and
 report. Mutation testing is opt-in per module because it is slow — offer it for
 the modules the user calls critical.
 
+Version 2 baselines fingerprint covered source, runner configuration, lockfile,
+runner, and coverage provider. If verify reports provenance drift, collect a
+new baseline. Use `--allow-provenance-drift` only with explicit user agreement
+and report the resulting verdict as untrusted. Legacy v1 baselines similarly
+require the explicit `--allow-legacy-baseline` escape hatch.
+
 ## Reporting back
 
 Summarize for the user: units before → after, line/branch retention, runtime
@@ -130,9 +141,9 @@ to `plan.md` for the full audit trail.
 
 - **Runner not detected / ambiguous** → scripts exit 2 with guidance; pass
   `--runner` or `--cwd` (monorepos: run per package).
-- **Coverage floor unreachable** (plan warning) → usually `collectionErrors`
-  (crashed isolated runs) — fix those units or `--filter` them out, and tell
-  the user which tests could not be measured.
+- **Incomplete collection** → fix the isolated failures. Do not filter them
+  away merely to make a plan pass; a filter changes the declared baseline
+  scope. `--keep-unmeasured` is the conservative escape hatch.
 - **Verify keeps failing after regeneration** → stop looping after ~3
   attempts; present the residual gap file-by-file and let the user decide
   between lowering the floor and keeping more tests.

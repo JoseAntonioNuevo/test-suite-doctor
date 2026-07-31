@@ -38,6 +38,14 @@ export interface UnitMetrics {
   wallMs: number;
   status: "passed" | "failed" | "mixed" | "empty" | "error";
   coverage: CoverageMap;
+  /** v2 structured identity; id remains human-readable display text. */
+  identity?: { file: string; testName: string | null };
+  /** Duplicate full names in one file are measured as one inseparable group. */
+  memberCount?: number;
+  assertionMs?: number;
+  fileMs?: number | null;
+  optimizationMs?: number;
+  costSource?: "runner-file" | "assertion-sum" | "process-wall" | "legacy";
 }
 
 export interface CoverageTotals {
@@ -47,16 +55,31 @@ export interface CoverageTotals {
   totalBranches: number;
 }
 
+import type { Provenance } from "./provenance.ts";
+
 export interface MetricsReport {
-  version: 1;
+  version: 2;
   tool: "test-suite-doctor";
+  toolVersion: string;
+  runId: string;
   createdAt: string;
   cwd: string;
   runner: Runner;
   granularity: Granularity;
+  options: Record<string, unknown>;
+  scope: { mode: "full" | "filtered"; filter: string | null; testFiles: string[] };
+  environment: {
+    node: string;
+    platform: NodeJS.Platform;
+    arch: string;
+    runner: { name: Runner; version: string; executable: string };
+    coverageProvider: { name: string; version: string } | null;
+  };
+  provenance: Provenance;
   baseline: CoverageTotals & {
     totalTests: number;
     totalRuntimeMs: number;
+    wallMs: number;
   };
   /** Whole-suite coverage from the baseline run — the universe verify.ts compares against. */
   baselineCoverage: CoverageMap;
@@ -73,6 +96,7 @@ export interface KeepEntry {
   runtimeMs: number;
   /** Fraction of baseline covered lines reached after selecting this unit. */
   cumulativeLineRetention: number;
+  cumulativeBranchRetention: number;
 }
 
 export interface DropEntry {
@@ -80,12 +104,17 @@ export interface DropEntry {
   reason: string;
   /** Lines this unit would still add on top of the kept set (0 = fully redundant). */
   residualLines: number;
+  residualBranches: number;
   /** Kept unit with the largest line overlap, for human review. */
   bestOverlapWith: string | null;
+  bestLineOverlapWith: string | null;
+  bestLineOverlapCount: number;
+  bestBranchOverlapWith: string | null;
+  bestBranchOverlapCount: number;
 }
 
 export interface MinimizePlan {
-  version: 1;
+  version: 2;
   tool: "test-suite-doctor";
   createdAt: string;
   granularity: Granularity;
@@ -107,4 +136,13 @@ export interface MinimizePlan {
   };
   keep: KeepEntry[];
   drop: DropEntry[];
+  sourceReport?: {
+    version: 1 | 2;
+    runId: string;
+    legacy: boolean;
+    fingerprint: string | null;
+  };
+  scope?: MetricsReport["scope"];
+  provenance?: Provenance;
+  trusted?: boolean;
 }

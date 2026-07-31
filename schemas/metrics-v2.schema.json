@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/JoseAntonioNuevo/test-suite-doctor/schemas/metrics-v2.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "tool", "toolVersion", "runId", "createdAt", "cwd", "runner", "granularity", "options", "scope", "environment", "provenance", "baseline", "baselineCoverage", "collectionErrors", "units"],
+  "properties": {
+    "version": { "const": 2 },
+    "tool": { "const": "test-suite-doctor" },
+    "toolVersion": { "type": "string" },
+    "runId": { "type": "string", "minLength": 1 },
+    "createdAt": { "type": "string" },
+    "cwd": { "type": "string" },
+    "runner": { "enum": ["vitest", "jest"] },
+    "granularity": { "enum": ["file", "test"] },
+    "options": { "type": "object" },
+    "scope": { "$ref": "#/$defs/scope" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node", "platform", "arch", "runner", "coverageProvider"],
+      "properties": {
+        "node": { "type": "string" },
+        "platform": { "type": "string" },
+        "arch": { "type": "string" },
+        "runner": { "$ref": "#/$defs/runnerIdentity" },
+        "coverageProvider": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/packageIdentity" }]
+        }
+      }
+    },
+    "provenance": { "$ref": "#/$defs/provenance" },
+    "baseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["totalTests", "totalRuntimeMs", "wallMs", "coveredLines", "totalLines", "coveredBranches", "totalBranches"],
+      "properties": {
+        "totalTests": { "type": "integer", "minimum": 0 },
+        "totalRuntimeMs": { "type": "number", "minimum": 0 },
+        "wallMs": { "type": "number", "minimum": 0 },
+        "coveredLines": { "type": "integer", "minimum": 0 },
+        "totalLines": { "type": "integer", "minimum": 0 },
+        "coveredBranches": { "type": "integer", "minimum": 0 },
+        "totalBranches": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "baselineCoverage": { "$ref": "#/$defs/coverageMap" },
+    "collectionErrors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "reason"],
+        "properties": { "id": { "type": "string" }, "reason": { "type": "string" } }
+      }
+    },
+    "units": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "file", "testName", "identity", "memberCount", "tests", "runtimeMs", "assertionMs", "fileMs", "optimizationMs", "costSource", "wallMs", "status", "coverage"],
+        "properties": {
+          "id": { "type": "string" },
+          "file": { "type": "string" },
+          "testName": { "type": ["string", "null"] },
+          "identity": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["file", "testName"],
+            "properties": { "file": { "type": "string" }, "testName": { "type": ["string", "null"] } }
+          },
+          "memberCount": { "type": "integer", "minimum": 0 },
+          "tests": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["fullName", "status", "durationMs"],
+              "properties": {
+                "fullName": { "type": "string" },
+                "status": { "type": "string" },
+                "durationMs": { "type": "number", "minimum": 0 }
+              }
+            }
+          },
+          "runtimeMs": { "type": "number", "minimum": 0 },
+          "assertionMs": { "type": "number", "minimum": 0 },
+          "fileMs": { "type": ["number", "null"], "minimum": 0 },
+          "optimizationMs": { "type": "number", "minimum": 0 },
+          "costSource": { "enum": ["runner-file", "assertion-sum", "process-wall", "legacy"] },
+          "wallMs": { "type": "number", "minimum": 0 },
+          "status": { "enum": ["passed", "failed", "mixed", "empty", "error"] },
+          "coverage": { "$ref": "#/$defs/coverageMap" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "filter", "testFiles"],
+      "properties": {
+        "mode": { "enum": ["full", "filtered"] },
+        "filter": { "type": ["string", "null"] },
+        "testFiles": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+      }
+    },
+    "runnerIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "executable"],
+      "properties": {
+        "name": { "enum": ["vitest", "jest"] },
+        "version": { "type": "string" },
+        "executable": { "type": "string" }
+      }
+    },
+    "packageIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": { "name": { "type": "string" }, "version": { "type": "string" } }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fingerprint", "coveredSources", "configuration", "runtime", "git"],
+      "properties": {
+        "fingerprint": { "type": "string" },
+        "coveredSources": { "type": "object", "additionalProperties": { "type": ["string", "null"] } },
+        "configuration": { "type": "object", "additionalProperties": { "type": "string" } },
+        "runtime": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["runner", "coverageProvider"],
+          "properties": {
+            "runner": { "$ref": "#/$defs/runnerIdentity" },
+            "coverageProvider": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/packageIdentity" }] }
+          }
+        },
+        "git": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["commit", "branch", "dirty", "diffHash"],
+          "properties": {
+            "commit": { "type": ["string", "null"] },
+            "branch": { "type": ["string", "null"] },
+            "dirty": { "type": ["boolean", "null"] },
+            "diffHash": { "type": ["string", "null"] }
+          }
+        }
+      }
+    },
+    "coverageMap": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["lines", "branches"],
+        "properties": {
+          "lines": { "type": "array", "items": { "type": "integer", "minimum": 1 }, "uniqueItems": true },
+          "branches": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+        }
+      }
+    }
+  }
+}

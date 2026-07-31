@@ -44,10 +44,15 @@ interface Candidate {
   cachedScore: number;
   cachedNewLines: number;
   cachedNewBranches: number;
+  costMs: number;
 }
 
 function scoreOf(newLines: number, newBranches: number, runtimeMs: number, o: GreedyOptions): number {
   return (o.weightLines * newLines + o.weightBranches * newBranches) / Math.max(runtimeMs, 1);
+}
+
+function optimizationCost(unit: UnitMetrics): number {
+  return unit.optimizationMs ?? unit.runtimeMs;
 }
 
 /**
@@ -90,9 +95,10 @@ export function minimize(
       unit,
       lines,
       branches,
-      cachedScore: scoreOf(lines.size, branches.size, unit.runtimeMs, o),
+      cachedScore: scoreOf(lines.size, branches.size, optimizationCost(unit), o),
       cachedNewLines: lines.size,
       cachedNewBranches: branches.size,
+      costMs: optimizationCost(unit),
     };
   });
 
@@ -115,15 +121,16 @@ export function minimize(
     for (const key of c.branches) if (!coveredBranches.has(key)) newBranches += 1;
     for (const key of c.lines) covered.add(key);
     for (const key of c.branches) coveredBranches.add(key);
-    keptRuntime += c.unit.runtimeMs;
+    keptRuntime += c.costMs;
     keptSet.add(c.unit.id);
     keep.push({
       id: c.unit.id,
       reason,
       newLines,
       newBranches,
-      runtimeMs: c.unit.runtimeMs,
+      runtimeMs: c.costMs,
       cumulativeLineRetention: round4(lineRetention()),
+      cumulativeBranchRetention: round4(branchRetention()),
     });
   };
 
@@ -145,33 +152,42 @@ export function minimize(
       break;
     }
 
-    const open = candidates.filter((c) => !keptSet.has(c.unit.id));
+    const remainingBudget =
+      o.runtimeBudgetMs == null ? Number.POSITIVE_INFINITY : o.runtimeBudgetMs - keptRuntime;
+    const unselected = candidates.filter((c) => !keptSet.has(c.unit.id));
+    const open = unselected.filter((c) => c.costMs <= remainingBudget);
+    if (open.length === 0 && unselected.length > 0 && o.runtimeBudgetMs != null) {
+      warnings.push(
+        `Stopped at the --runtime-budget-ms ${o.runtimeBudgetMs} budget with line retention ${pct(lineRetention())}.`,
+      );
+      break;
+    }
     if (open.length === 0) break;
     // Sort by cached upper bound; recompute exact gains only until the bound
     // guarantees no remaining candidate can beat the current best.
     open.sort(
       (a, b) =>
         b.cachedScore - a.cachedScore ||
-        a.unit.runtimeMs - b.unit.runtimeMs ||
+        a.costMs - b.costMs ||
         (a.unit.id < b.unit.id ? -1 : 1),
     );
     let best: Candidate | null = null;
     let bestScore = -1;
     for (const c of open) {
-      if (best && c.cachedScore <= bestScore) break;
+      if (best && c.cachedScore < bestScore) break;
       let newLines = 0;
       for (const key of c.lines) if (!covered.has(key)) newLines += 1;
       let newBranches = 0;
       for (const key of c.branches) if (!coveredBranches.has(key)) newBranches += 1;
       c.cachedNewLines = newLines;
       c.cachedNewBranches = newBranches;
-      c.cachedScore = scoreOf(newLines, newBranches, c.unit.runtimeMs, o);
+      c.cachedScore = scoreOf(newLines, newBranches, c.costMs, o);
       const better =
         c.cachedScore > bestScore ||
         (best !== null &&
           c.cachedScore === bestScore &&
-          (c.unit.runtimeMs < best.unit.runtimeMs ||
-            (c.unit.runtimeMs === best.unit.runtimeMs && c.unit.id < best.unit.id)));
+          (c.costMs < best.costMs ||
+            (c.costMs === best.costMs && c.unit.id < best.unit.id)));
       if (best === null || better) {
         best = c;
         bestScore = c.cachedScore;
@@ -187,15 +203,9 @@ export function minimize(
       }
       break;
     }
-    if (o.runtimeBudgetMs != null && keptRuntime + best.unit.runtimeMs > o.runtimeBudgetMs) {
-      warnings.push(
-        `Stopped at the --runtime-budget-ms ${o.runtimeBudgetMs} budget with line retention ${pct(lineRetention())}.`,
-      );
-      break;
-    }
     select(
       best,
-      `+${best.cachedNewLines} lines, +${best.cachedNewBranches} branches for ${Math.round(best.unit.runtimeMs)}ms`,
+      `+${best.cachedNewLines} lines, +${best.cachedNewBranches} branches for ${Math.round(best.costMs)}ms estimated`,
     );
   }
 
@@ -213,30 +223,44 @@ export function minimize(
     if (keptSet.has(c.unit.id)) continue;
     let residual = 0;
     for (const key of c.lines) if (!covered.has(key)) residual += 1;
+    let residualBranches = 0;
+    for (const key of c.branches) if (!coveredBranches.has(key)) residualBranches += 1;
     let bestOverlap: string | null = null;
     let bestOverlapSize = 0;
+    let bestBranchOverlap: string | null = null;
+    let bestBranchOverlapSize = 0;
     for (const k of keptCandidates) {
       const overlap = intersectionSize(c.lines, k.lines);
       if (overlap > bestOverlapSize) {
         bestOverlapSize = overlap;
         bestOverlap = k.unit.id;
       }
+      const branchOverlap = intersectionSize(c.branches, k.branches);
+      if (branchOverlap > bestBranchOverlapSize) {
+        bestBranchOverlapSize = branchOverlap;
+        bestBranchOverlap = k.unit.id;
+      }
     }
     drop.push({
       id: c.unit.id,
       residualLines: residual,
+      residualBranches,
       bestOverlapWith: bestOverlap,
+      bestLineOverlapWith: bestOverlap,
+      bestLineOverlapCount: bestOverlapSize,
+      bestBranchOverlapWith: bestBranchOverlap,
+      bestBranchOverlapCount: bestBranchOverlapSize,
       reason:
-        residual === 0
-          ? "adds no line coverage beyond the kept set"
-          : `would add only ${residual} lines — below the stopping thresholds`,
+        residual === 0 && residualBranches === 0
+          ? "adds no line or branch coverage beyond the kept set"
+          : `would add ${residual} lines and ${residualBranches} branches — below the stopping thresholds`,
     });
   }
   drop.sort((a, b) => a.residualLines - b.residualLines || (a.id < b.id ? -1 : 1));
 
-  const totalRuntime = units.reduce((s, u) => s + u.runtimeMs, 0);
+  const totalRuntime = units.reduce((sum, unit) => sum + optimizationCost(unit), 0);
   return {
-    version: 1,
+    version: 2,
     tool: "test-suite-doctor",
     createdAt: new Date().toISOString(),
     granularity: (units[0]?.testName != null ? "test" : "file") as Granularity,

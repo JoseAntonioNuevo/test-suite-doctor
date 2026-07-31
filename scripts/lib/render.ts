@@ -16,6 +16,16 @@ export function renderPlanMarkdown(plan: MinimizePlan, maxRows = 400): string {
   lines.push("");
   lines.push(`Generated ${plan.createdAt} at \`${plan.granularity}\` granularity by test-suite-doctor.`);
   lines.push("");
+  if (plan.scope?.mode === "filtered") {
+    lines.push(
+      `> **Scoped baseline:** only test files matching \`${plan.scope.filter}\` are represented (${plan.scope.testFiles.length} baseline files).`,
+    );
+    lines.push("");
+  }
+  if (plan.trusted === false) {
+    lines.push("> **UNTRUSTED:** legacy provenance, drift, or incomplete collection prevents a trusted recommendation.");
+    lines.push("");
+  }
   lines.push("## Summary");
   lines.push("");
   lines.push("| Metric | Before | After |");
@@ -23,7 +33,7 @@ export function renderPlanMarkdown(plan: MinimizePlan, maxRows = 400): string {
   lines.push(`| Units | ${s.unitsTotal} | **${s.unitsKept}** |`);
   lines.push(`| Covered lines | ${s.baselineCoveredLines} | ${s.keptCoveredLines} (${pct(s.lineRetention)} retained) |`);
   lines.push(`| Covered branches | ${s.baselineCoveredBranches} | ${s.keptCoveredBranches} (${pct(s.branchRetention)} retained) |`);
-  lines.push(`| Test runtime | ${ms(s.totalRuntimeMs)} | ${ms(s.keptRuntimeMs)} |`);
+  lines.push(`| Estimated test cost | ${ms(s.totalRuntimeMs)} | ${ms(s.keptRuntimeMs)} |`);
   lines.push("");
   if (s.warnings.length > 0) {
     lines.push("## Warnings");
@@ -33,11 +43,11 @@ export function renderPlanMarkdown(plan: MinimizePlan, maxRows = 400): string {
   }
   lines.push(`## Keep (${plan.keep.length})`);
   lines.push("");
-  lines.push("| # | Unit | Gain | Runtime | Cum. retention |");
+  lines.push("| # | Unit | Gain | Estimated cost | Cum. line / branch retention |");
   lines.push("|---:|---|---|---:|---:|");
   plan.keep.slice(0, maxRows).forEach((k, i) => {
     lines.push(
-      `| ${i + 1} | \`${k.id}\` | ${k.reason} | ${ms(k.runtimeMs)} | ${pct(k.cumulativeLineRetention)} |`,
+      `| ${i + 1} | \`${k.id}\` | ${k.reason} | ${ms(k.runtimeMs)} | ${pct(k.cumulativeLineRetention)} / ${pct(k.cumulativeBranchRetention)} |`,
     );
   });
   if (plan.keep.length > maxRows) lines.push(`| … | +${plan.keep.length - maxRows} more | | | |`);
@@ -47,11 +57,11 @@ export function renderPlanMarkdown(plan: MinimizePlan, maxRows = 400): string {
   lines.push("> Review each against \`references/slop-patterns.md\` before deleting — coverage");
   lines.push("> cannot see API contracts or documented regressions.");
   lines.push("");
-  lines.push("| Unit | Residual lines | Covered by | Reason |");
-  lines.push("|---|---:|---|---|");
+  lines.push("| Unit | Residual lines | Residual branches | Best line overlap | Best branch overlap | Reason |");
+  lines.push("|---|---:|---:|---|---|---|");
   plan.drop.slice(0, maxRows).forEach((d) => {
     lines.push(
-      `| \`${d.id}\` | ${d.residualLines} | ${d.bestOverlapWith ? `\`${d.bestOverlapWith}\`` : "—"} | ${d.reason} |`,
+      `| \`${d.id}\` | ${d.residualLines} | ${d.residualBranches} | ${d.bestLineOverlapWith ? `\`${d.bestLineOverlapWith}\` (${d.bestLineOverlapCount})` : "—"} | ${d.bestBranchOverlapWith ? `\`${d.bestBranchOverlapWith}\` (${d.bestBranchOverlapCount})` : "—"} | ${d.reason} |`,
     );
   });
   if (plan.drop.length > maxRows) lines.push(`| … +${plan.drop.length - maxRows} more | | | |`);

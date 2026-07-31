@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/JoseAntonioNuevo/test-suite-doctor/schemas/plan-v2.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "tool", "createdAt", "granularity", "options", "summary", "keep", "drop", "sourceReport", "scope", "provenance", "trusted"],
+  "properties": {
+    "version": { "const": 2 },
+    "tool": { "const": "test-suite-doctor" },
+    "createdAt": { "type": "string" },
+    "granularity": { "enum": ["file", "test"] },
+    "options": { "type": "object" },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unitsTotal", "unitsKept", "unitsDropped", "baselineCoveredLines", "keptCoveredLines", "lineRetention", "baselineCoveredBranches", "keptCoveredBranches", "branchRetention", "keptRuntimeMs", "totalRuntimeMs", "warnings"],
+      "properties": {
+        "unitsTotal": { "type": "integer", "minimum": 0 },
+        "unitsKept": { "type": "integer", "minimum": 0 },
+        "unitsDropped": { "type": "integer", "minimum": 0 },
+        "baselineCoveredLines": { "type": "integer", "minimum": 0 },
+        "keptCoveredLines": { "type": "integer", "minimum": 0 },
+        "lineRetention": { "type": "number", "minimum": 0, "maximum": 1 },
+        "baselineCoveredBranches": { "type": "integer", "minimum": 0 },
+        "keptCoveredBranches": { "type": "integer", "minimum": 0 },
+        "branchRetention": { "type": "number", "minimum": 0, "maximum": 1 },
+        "keptRuntimeMs": { "type": "number", "minimum": 0 },
+        "totalRuntimeMs": { "type": "number", "minimum": 0 },
+        "warnings": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "keep": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "reason", "newLines", "newBranches", "runtimeMs", "cumulativeLineRetention", "cumulativeBranchRetention"],
+        "properties": {
+          "id": { "type": "string" }, "reason": { "type": "string" },
+          "newLines": { "type": "integer", "minimum": 0 }, "newBranches": { "type": "integer", "minimum": 0 },
+          "runtimeMs": { "type": "number", "minimum": 0 },
+          "cumulativeLineRetention": { "type": "number", "minimum": 0, "maximum": 1 },
+          "cumulativeBranchRetention": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      }
+    },
+    "drop": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "reason", "residualLines", "residualBranches", "bestOverlapWith", "bestLineOverlapWith", "bestLineOverlapCount", "bestBranchOverlapWith", "bestBranchOverlapCount"],
+        "properties": {
+          "id": { "type": "string" }, "reason": { "type": "string" },
+          "residualLines": { "type": "integer", "minimum": 0 }, "residualBranches": { "type": "integer", "minimum": 0 },
+          "bestOverlapWith": { "type": ["string", "null"] }, "bestLineOverlapWith": { "type": ["string", "null"] },
+          "bestLineOverlapCount": { "type": "integer", "minimum": 0 }, "bestBranchOverlapWith": { "type": ["string", "null"] },
+          "bestBranchOverlapCount": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "sourceReport": {
+      "type": "object", "additionalProperties": false,
+      "required": ["version", "runId", "legacy", "fingerprint"],
+      "properties": {
+        "version": { "enum": [1, 2] }, "runId": { "type": "string" }, "legacy": { "type": "boolean" },
+        "fingerprint": { "type": ["string", "null"] }
+      }
+    },
+    "scope": {
+      "type": "object", "additionalProperties": false, "required": ["mode", "filter", "testFiles"],
+      "properties": {
+        "mode": { "enum": ["full", "filtered"] },
+        "filter": { "type": ["string", "null"] },
+        "testFiles": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+      }
+    },
+    "provenance": { "type": "object" },
+    "trusted": { "type": "boolean" }
+  }
+}

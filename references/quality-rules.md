@@ -6,8 +6,11 @@ tests for coverage gaps).
 
 ## Structure: Arrange–Act–Assert
 
-Exactly three visual blocks, in order, separated by a blank line. No assertions
-inside arrange, no arranging after act.
+For focused unit and behavior tests, **SHOULD** make Arrange, Act, and Assert
+easy to distinguish. Blank-line-separated blocks are a useful default, not a
+universal formatting requirement. Integration, orchestration, visual,
+property-based, performance, and characterization tests may need several acts
+or observations; optimize those for readable intent and diagnostic failures.
 
 ```ts
 it("charges the saved card when the order total is positive", async () => {
@@ -20,21 +23,21 @@ it("charges the saved card when the order total is positive", async () => {
 });
 ```
 
-If arrange dominates the test, extract builder helpers (`orderWith`,
-`customerWithSavedCard`) into shared test utilities — never copy-paste blocks
-between files.
+If arrange dominates several tests, **SHOULD** extract stable builder helpers
+(`orderWith`, `customerWithSavedCard`). Local duplication can be clearer than
+a premature abstraction when fixtures intentionally differ.
 
 ## Behavior over implementation
 
-Test through the public API of the unit. If a refactor that preserves behavior
-would break the test, the test is wrong. Never assert: private method calls,
-internal state, call counts of internal helpers, CSS classes as behavior.
-Assert: return values, thrown errors, emitted events, writes observed at a
-boundary fake.
+Behavior tests **MUST** assert an observable contract. They **SHOULD** prefer a
+public API and avoid private calls, incidental internal state, or collaborator
+call counts. Characterization tests may temporarily pin implementation details
+during a risky migration, and visual tests may assert stable DOM/CSS hooks when
+those hooks are part of the integration contract; label those exceptions.
 
 ## One behavior per test
 
-One act, one logical assertion cluster per test. Multiple `expect`s are fine
+Tests **SHOULD** cover one named behavior or invariant. Multiple `expect`s are fine
 when they describe one outcome (a returned object's fields); they are not fine
 when they chain unrelated behaviors ("creates AND updates AND deletes").
 Splitting keeps failure messages diagnostic — the test name tells you what
@@ -54,23 +57,25 @@ module.
 
 ## Mocking discipline
 
-Mock **only external boundaries**: network/HTTP, databases you cannot run in
+Tests **SHOULD** mock external boundaries: network/HTTP, databases you cannot run in
 the test, clock, randomness, filesystem, third-party SaaS SDKs, message queues.
 
-- Never mock the module under test's internal collaborators just to isolate a
+- Avoid mocking the module under test's internal collaborators just to isolate a
   single class — test the cluster of objects through its entry point.
 - Prefer fakes (in-memory implementations with real behavior) over per-call
   `mockResolvedValue` scripts; fakes fail honestly when the contract changes.
 - Inject the clock/randomness (or use the runner's fake timers) instead of
   sleeping.
-- If a test needs more than ~2 mocks to run, the code's seams are wrong or the
-  test targets too small a unit — flag it rather than piling on mocks.
+- A high mock count is a review signal, not an automatic failure. Orchestration
+  code may legitimately coordinate several boundaries; prefer contract-accurate
+  fakes and verify the resulting behavior.
 
 ## Determinism
 
-No real network, no real time, no sleeps, no test-order coupling, no shared
-mutable state between tests. A test that flakes is worse than no test: it
-trains people to re-run and ignore.
+Tests **MUST** be repeatable in their declared environment. Unit tests should
+avoid real network, real time, sleeps, order coupling, and shared mutable state.
+Explicit integration/performance suites may use real services or clocks when
+they provide isolation, bounded timeouts, cleanup, and a separate CI policy.
 
 ## Regeneration procedure (coverage gaps)
 

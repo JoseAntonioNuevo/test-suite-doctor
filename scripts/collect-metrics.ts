@@ -11,7 +11,7 @@
  *   npx tsx scripts/collect-metrics.ts --cwd /path/to/repo
  */
 import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
-import { isAbsolute, join, relative, resolve } from "node:path";
+import { basename, isAbsolute, join, relative, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { parsePositiveInteger, parseRegex } from "./lib/args.ts";
 import { createInvocationDir, invalidateOutput, writeJsonAtomic } from "./lib/artifacts.ts";
@@ -26,6 +26,14 @@ import {
   type JestResultsFile,
 } from "./lib/runner-commands.ts";
 import type { Granularity, MetricsReport, TestCaseInfo, UnitMetrics } from "./lib/types.ts";
+import {
+  listTestFilesSpec,
+  parseListedTestFiles,
+  resolvePackageVersion,
+  resolveTargetBinary,
+} from "./lib/runner-resolution.ts";
+import { selectOptimizationCost } from "./lib/timing.ts";
+import { captureProvenance } from "./lib/provenance.ts";
 
 const HELP = `collect-metrics — per-test coverage + runtime for Vitest/Jest suites
 
@@ -34,6 +42,8 @@ Usage: npx tsx scripts/collect-metrics.ts [options]
 Options:
   --cwd <dir>                Target repo root (default: current directory)
   --runner <auto|vitest|jest>  Test runner (default: auto-detect)
+  --runner-bin <path>        Explicit target-local runner JavaScript executable
+  --runner-arg <arg>         Additional runner argument (repeatable)
   --granularity <file|test>  Measurement unit (default: file). "test" is exact
                              but runs every single test in isolation — slow.
   --filter <regex>           Only measure test files matching this regex
@@ -77,6 +87,8 @@ async function main(): Promise<void> {
     options: {
       cwd: { type: "string", default: "." },
       runner: { type: "string", default: "auto" },
+      "runner-bin": { type: "string" },
+      "runner-arg": { type: "string", multiple: true, default: [] },
       granularity: { type: "string", default: "file" },
       filter: { type: "string" },
       out: { type: "string", default: ".test-doctor/report.json" },
@@ -120,14 +132,67 @@ async function main(): Promise<void> {
     fail((err as Error).message);
   }
   const { runner } = detection;
+  let runnerBinary;
+  try {
+    runnerBinary = resolveTargetBinary(cwd, runner, values["runner-bin"]);
+  } catch (error) {
+    fail((error as Error).message);
+  }
   console.error(`runner: ${runner} (${detection.reason})`);
+  let coverageProvider: { name: string; version: string };
+  try {
+    coverageProvider =
+      runner === "vitest"
+        ? {
+            name: "@vitest/coverage-v8",
+            version: resolvePackageVersion(cwd, "@vitest/coverage-v8"),
+          }
+        : { name: "jest-built-in", version: runnerBinary.version };
+  } catch (error) {
+    fail((error as Error).message);
+  }
   const scratchDir = createInvocationDir(resolve(cwd, values.scratch!), "collect");
+  const relFile = (file: string) =>
+    (isAbsolute(file) ? relative(cwd, file) : file).replace(/\\/g, "/");
+  const runnerArgs = values["runner-arg"] ?? [];
+
+  const listResult = await run(
+    runnerBinary.command,
+    [...runnerBinary.argsPrefix, ...listTestFilesSpec(runner, runnerArgs)],
+    { cwd, timeoutMs: baselineTimeout },
+  );
+  if (
+    listResult.timedOut ||
+    listResult.error ||
+    listResult.signal ||
+    listResult.code !== 0
+  ) {
+    if (!values["keep-scratch"]) rmSync(scratchDir, { recursive: true, force: true });
+    fail(`test-file listing failed:\n${listResult.stderr.slice(-2000)}`);
+  }
+  let testFiles: string[];
+  try {
+    testFiles = parseListedTestFiles(runner, listResult.stdout).map(relFile).sort();
+  } catch (error) {
+    fail((error as Error).message);
+  }
+  if (filter) testFiles = testFiles.filter((file) => filter.test(file));
+  if (testFiles.length === 0) fail("no test files to measure after --filter");
 
   // --- Baseline: one whole-suite run with coverage --------------------------
   console.error("baseline: running the full suite with coverage (this is the slow part)…");
-  const baseSpec = buildRunSpec(runner, { scratchDir, label: "baseline" });
+  const baseSpec = buildRunSpec(runner, {
+    scratchDir,
+    label: "baseline",
+    testFiles: filter ? testFiles.map((file) => join(cwd, file)) : undefined,
+    extraArgs: runnerArgs,
+  });
   mkdirSync(join(scratchDir, "baseline"), { recursive: true });
-  const baseRes = await run("npx", baseSpec.args, { cwd, timeoutMs: baselineTimeout });
+  const baseRes = await run(
+    runnerBinary.command,
+    [...runnerBinary.argsPrefix, ...baseSpec.args],
+    { cwd, timeoutMs: baselineTimeout },
+  );
   if (baseRes.timedOut) fail(`baseline run exceeded --baseline-timeout-ms ${baselineTimeout}`);
   const baseResults = parseResultsFile(
     readJson<JestResultsFile>(baseSpec.resultsFile, "baseline results JSON", baseRes.stderr),
@@ -157,34 +222,41 @@ async function main(): Promise<void> {
       `(${((baseCov.totals.coveredLines / Math.max(baseCov.totals.totalLines, 1)) * 100).toFixed(1)}%)`,
   );
 
-  const relFile = (f: string) => (isAbsolute(f) ? relative(cwd, f) : f).replace(/\\/g, "/");
-  let testFiles = [...new Set(baseResults.files.map(relFile))].sort();
-  if (filter) testFiles = testFiles.filter((f) => filter.test(f));
-  if (testFiles.length === 0) fail("no test files to measure after --filter");
-
   // --- Enumerate measurement units -----------------------------------------
   interface UnitSpec {
     id: string;
     file: string;
     testName: string | null;
+    memberCount: number;
   }
   let unitSpecs: UnitSpec[];
   if (granularity === "file") {
-    unitSpecs = testFiles.map((f) => ({ id: f, file: f, testName: null }));
+    unitSpecs = testFiles.map((f) => ({ id: f, file: f, testName: null, memberCount: 1 }));
   } else {
     // Names come from a per-file listing run of the baseline results: the
     // baseline JSON already carries every test's fullName grouped by file.
     const raw = readJson<JestResultsFile>(baseSpec.resultsFile, "baseline results JSON", "");
-    unitSpecs = [];
+    const groups = new Map<string, UnitSpec>();
     for (const fileResult of raw.testResults ?? []) {
       const file = relFile(fileResult.name ?? "");
       if (!file || !testFiles.includes(file)) continue;
       for (const t of fileResult.assertionResults ?? []) {
         const name = t.fullName || t.title || "";
         if (!name) continue;
-        unitSpecs.push({ id: `${file}::${name}`, file, testName: name });
+        const key = JSON.stringify([file, name]);
+        const existing = groups.get(key);
+        if (existing) existing.memberCount += 1;
+        else {
+          groups.set(key, {
+            id: `${file}::${name}`,
+            file,
+            testName: name,
+            memberCount: 1,
+          });
+        }
       }
     }
+    unitSpecs = [...groups.values()];
     console.error(
       `granularity=test: ${unitSpecs.length} isolated runs queued — expect roughly ` +
         `${unitSpecs.length}× the runner startup cost. Use --filter to scope if needed.`,
@@ -201,9 +273,14 @@ async function main(): Promise<void> {
       label,
       testFile: join(cwd, spec.file),
       testNamePattern: spec.testName ? exactNamePattern(spec.testName) : undefined,
+      extraArgs: runnerArgs,
     });
     mkdirSync(join(scratchDir, label), { recursive: true });
-    const res = await run("npx", runSpec.args, { cwd, timeoutMs: unitTimeout });
+    const res = await run(
+      runnerBinary.command,
+      [...runnerBinary.argsPrefix, ...runSpec.args],
+      { cwd, timeoutMs: unitTimeout },
+    );
     let unit: UnitMetrics;
     try {
       if (res.timedOut) throw new Error(`timed out after ${unitTimeout}ms`);
@@ -223,12 +300,44 @@ async function main(): Promise<void> {
       const tests = spec.testName
         ? results.tests.filter((t) => t.fullName === spec.testName)
         : results.tests;
+      if (spec.testName && tests.length !== spec.memberCount) {
+        throw new Error(
+          `selector executed ${tests.length} matching assertion(s); expected ${spec.memberCount}`,
+        );
+      }
+      const assertionMs = tests.reduce((sum, test) => sum + test.durationMs, 0);
+      const fileMs = spec.testName
+        ? null
+        : ([...results.fileDurations.entries()].find(
+            ([file]) => relFile(file) === spec.file,
+          )?.[1] ?? null);
+      const timing = selectOptimizationCost(
+        {
+          id: spec.id,
+          file: spec.file,
+          testName: spec.testName,
+          tests,
+          runtimeMs: assertionMs,
+          assertionMs,
+          fileMs,
+          wallMs: res.wallMs,
+          status: "passed",
+          coverage: cov.files,
+        },
+        granularity,
+        "auto",
+      );
       unit = {
         id: spec.id,
         file: spec.file,
         testName: spec.testName,
+        identity: { file: spec.file, testName: spec.testName },
+        memberCount: spec.testName ? spec.memberCount : tests.length,
         tests,
-        runtimeMs: tests.reduce((s, t) => s + t.durationMs, 0),
+        runtimeMs: assertionMs,
+        assertionMs,
+        fileMs,
+        ...timing,
         wallMs: res.wallMs,
         status: statusOf(tests),
         coverage: cov.files,
@@ -239,8 +348,14 @@ async function main(): Promise<void> {
         id: spec.id,
         file: spec.file,
         testName: spec.testName,
+        identity: { file: spec.file, testName: spec.testName },
+        memberCount: spec.memberCount,
         tests: [],
         runtimeMs: 0,
+        assertionMs: 0,
+        fileMs: null,
+        optimizationMs: 0,
+        costSource: "assertion-sum",
         wallMs: res.wallMs,
         status: "error",
         coverage: {},
@@ -256,15 +371,51 @@ async function main(): Promise<void> {
 
   // --- Report ---------------------------------------------------------------
   const report: MetricsReport = {
-    version: 1,
+    version: 2,
     tool: "test-suite-doctor",
+    toolVersion: "0.2.0",
+    runId: basename(scratchDir),
     createdAt: new Date().toISOString(),
     cwd,
     runner,
     granularity,
+    options: {
+      runner: values.runner,
+      granularity,
+      filter: values.filter ?? null,
+      concurrency,
+      timeoutMs: unitTimeout,
+      baselineTimeoutMs: baselineTimeout,
+      runnerArgs,
+    },
+    scope: {
+      mode: filter ? "filtered" : "full",
+      filter: values.filter ?? null,
+      testFiles,
+    },
+    environment: {
+      node: process.version,
+      platform: process.platform,
+      arch: process.arch,
+      runner: {
+        name: runner,
+        version: runnerBinary.version,
+        executable: runnerBinary.executable,
+      },
+      coverageProvider,
+    },
+    provenance: captureProvenance(cwd, Object.keys(baseCov.files), {
+      runner: {
+        name: runner,
+        version: runnerBinary.version,
+        executable: runnerBinary.executable,
+      },
+      coverageProvider,
+    }),
     baseline: {
       totalTests: baseResults.totalTests,
       totalRuntimeMs: Math.round(totalRuntimeMs),
+      wallMs: baseRes.wallMs,
       ...baseCov.totals,
     },
     baselineCoverage: baseCov.files,

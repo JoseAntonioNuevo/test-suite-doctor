@@ -121,4 +121,14 @@ describe("CLI fail-closed safety", () => {
     expect(result.stderr).toContain("--coverage-floor");
     expect(result.stderr).not.toContain("running the current suite");
   });
+
+  it("verify rejects a legacy v1 baseline unless explicitly allowed", () => {
+    const dir = mkdtempSync(join(tmpdir(), "doctor-cli-"));
+    const reportPath = join(dir, "report.json");
+    writeFileSync(reportPath, JSON.stringify(report()));
+    const result = invoke("scripts/verify.ts", ["--baseline", reportPath, "--cwd", root]);
+    expect(result.status).toBe(2);
+    expect(result.stderr).toMatch(/legacy|allow-legacy-baseline/i);
+    expect(result.stderr).not.toContain("running the current suite");
+  });
 });

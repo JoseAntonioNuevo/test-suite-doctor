@@ -1,13 +1,77 @@
 {
-  "version": 1,
+  "version": 2,
   "tool": "test-suite-doctor",
+  "toolVersion": "0.2.0",
+  "runId": "demo-synthetic",
   "createdAt": "2026-07-31T00:00:00.000Z",
   "cwd": "/demo/shop",
   "runner": "vitest",
   "granularity": "file",
+  "options": {
+    "synthetic": true
+  },
+  "scope": {
+    "mode": "full",
+    "filter": null,
+    "testFiles": [
+      "tests/cart.test.ts",
+      "tests/cart-extra.test.ts",
+      "tests/cart-should-work-2.test.ts",
+      "tests/pricing.test.ts",
+      "tests/pricing-more.test.ts",
+      "tests/pricing-snapshot.test.ts",
+      "tests/api.test.ts",
+      "tests/api-mock.test.ts",
+      "tests/api-contract.test.ts",
+      "tests/utils-lodash.test.ts",
+      "tests/regression-1042.test.ts",
+      "tests/smoke.test.ts"
+    ]
+  },
+  "environment": {
+    "node": "synthetic",
+    "platform": "darwin",
+    "arch": "arm64",
+    "runner": {
+      "name": "vitest",
+      "version": "synthetic",
+      "executable": "synthetic"
+    },
+    "coverageProvider": {
+      "name": "@vitest/coverage-v8",
+      "version": "synthetic"
+    }
+  },
+  "provenance": {
+    "fingerprint": "synthetic-demo",
+    "coveredSources": {
+      "src/cart.ts": null,
+      "src/pricing.ts": null,
+      "src/api.ts": null
+    },
+    "configuration": {},
+    "runtime": {
+      "runner": {
+        "name": "vitest",
+        "version": "synthetic",
+        "executable": "synthetic"
+      },
+      "coverageProvider": {
+        "name": "@vitest/coverage-v8",
+        "version": "synthetic"
+      }
+    },
+    "git": {
+      "commit": null,
+      "branch": null,
+      "dirty": null,
+      "diffHash": null
+    }
+  },
   "baseline": {
     "totalTests": 17,
     "totalRuntimeMs": 4070,
+    "wallMs": 14870,
     "coveredLines": 95,
     "totalLines": 103,
     "coveredBranches": 5,
@@ -138,6 +202,11 @@
       "id": "tests/cart.test.ts",
       "file": "tests/cart.test.ts",
       "testName": null,
+      "identity": {
+        "file": "tests/cart.test.ts",
+        "testName": null
+      },
+      "memberCount": 3,
       "tests": [
         {
           "fullName": "cart adds an item",
@@ -156,6 +225,10 @@
         }
       ],
       "runtimeMs": 850,
+      "assertionMs": 850,
+      "fileMs": 850,
+      "optimizationMs": 850,
+      "costSource": "runner-file",
       "wallMs": 1750,
       "status": "passed",
       "coverage": {
@@ -226,6 +299,11 @@
       "id": "tests/cart-extra.test.ts",
       "file": "tests/cart-extra.test.ts",
       "testName": null,
+      "identity": {
+        "file": "tests/cart-extra.test.ts",
+        "testName": null
+      },
+      "memberCount": 2,
       "tests": [
         {
           "fullName": "cart should work",
@@ -239,6 +317,10 @@
         }
       ],
       "runtimeMs": 640,
+      "assertionMs": 640,
+      "fileMs": 640,
+      "optimizationMs": 640,
+      "costSource": "runner-file",
       "wallMs": 1540,
       "status": "passed",
       "coverage": {
@@ -273,6 +355,11 @@
       "id": "tests/cart-should-work-2.test.ts",
       "file": "tests/cart-should-work-2.test.ts",
       "testName": null,
+      "identity": {
+        "file": "tests/cart-should-work-2.test.ts",
+        "testName": null
+      },
+      "memberCount": 1,
       "tests": [
         {
           "fullName": "cart should return the correct value",
@@ -281,6 +368,10 @@
         }
       ],
       "runtimeMs": 610,
+      "assertionMs": 610,
+      "fileMs": 610,
+      "optimizationMs": 610,
+      "costSource": "runner-file",
       "wallMs": 1510,
       "status": "passed",
       "coverage": {
@@ -313,6 +404,11 @@
       "id": "tests/pricing.test.ts",
       "file": "tests/pricing.test.ts",
       "testName": null,
+      "identity": {
+        "file": "tests/pricing.test.ts",
+        "testName": null
+      },
+      "memberCount": 2,
       "tests": [
         {
           "fullName": "applies the launch discount",
@@ -326,6 +422,10 @@
         }
       ],
       "runtimeMs": 320,
+      "assertionMs": 320,
+      "fileMs": 320,
+      "optimizationMs": 320,
+      "costSource": "runner-file",
       "wallMs": 1220,
       "status": "passed",
       "coverage": {
@@ -368,6 +468,11 @@
       "id": "tests/pricing-more.test.ts",
       "file": "tests/pricing-more.test.ts",
       "testName": null,
+      "identity": {
+        "file": "tests/pricing-more.test.ts",
+        "testName": null
+      },
+      "memberCount": 1,
       "tests": [
         {
           "fullName": "discount should be defined",
@@ -376,6 +481,10 @@
         }
       ],
       "runtimeMs": 300,
+      "assertionMs": 300,
+      "fileMs": 300,
+      "optimizationMs": 300,
+      "costSource": "runner-file",
       "wallMs": 1200,
       "status": "passed",
       "coverage": {
@@ -405,6 +514,11 @@
       "id": "tests/pricing-snapshot.test.ts",
       "file": "tests/pricing-snapshot.test.ts",
       "testName": null,
+      "identity": {
+        "file": "tests/pricing-snapshot.test.ts",
+        "testName": null
+      },
+      "memberCount": 1,
       "tests": [
         {
           "fullName": "matches the pricing table snapshot",
@@ -413,6 +527,10 @@
         }
       ],
       "runtimeMs": 95,
+      "assertionMs": 95,
+      "fileMs": 95,
+      "optimizationMs": 95,
+      "costSource": "runner-file",
       "wallMs": 995,
       "status": "passed",
       "coverage": {
@@ -467,6 +585,11 @@
       "id": "tests/api.test.ts",
       "file": "tests/api.test.ts",
       "testName": null,
+      "identity": {
+        "file": "tests/api.test.ts",
+        "testName": null
+      },
+      "memberCount": 2,
       "tests": [
         {
           "fullName": "returns 200 with the profile",
@@ -480,6 +603,10 @@
         }
       ],
       "runtimeMs": 410,
+      "assertionMs": 410,
+      "fileMs": 410,
+      "optimizationMs": 410,
+      "costSource": "runner-file",
       "wallMs": 1310,
       "status": "passed",
       "coverage": {
@@ -522,6 +649,11 @@
       "id": "tests/api-mock.test.ts",
       "file": "tests/api-mock.test.ts",
       "testName": null,
+      "identity": {
+        "file": "tests/api-mock.test.ts",
+        "testName": null
+      },
+      "memberCount": 1,
       "tests": [
         {
           "fullName": "gets the user from the repo mock",
@@ -530,6 +662,10 @@
         }
       ],
       "runtimeMs": 380,
+      "assertionMs": 380,
+      "fileMs": 380,
+      "optimizationMs": 380,
+      "costSource": "runner-file",
       "wallMs": 1280,
       "status": "passed",
       "coverage": {
@@ -550,6 +686,11 @@
       "id": "tests/api-contract.test.ts",
       "file": "tests/api-contract.test.ts",
       "testName": null,
+      "identity": {
+        "file": "tests/api-contract.test.ts",
+        "testName": null
+      },
+      "memberCount": 1,
       "tests": [
         {
           "fullName": "error body matches the documented shape",
@@ -558,6 +699,10 @@
         }
       ],
       "runtimeMs": 150,
+      "assertionMs": 150,
+      "fileMs": 150,
+      "optimizationMs": 150,
+      "costSource": "runner-file",
       "wallMs": 1050,
       "status": "passed",
       "coverage": {
@@ -586,6 +731,11 @@
       "id": "tests/utils-lodash.test.ts",
       "file": "tests/utils-lodash.test.ts",
       "testName": null,
+      "identity": {
+        "file": "tests/utils-lodash.test.ts",
+        "testName": null
+      },
+      "memberCount": 1,
       "tests": [
         {
           "fullName": "sortBy sorts",
@@ -594,6 +744,10 @@
         }
       ],
       "runtimeMs": 200,
+      "assertionMs": 200,
+      "fileMs": 200,
+      "optimizationMs": 200,
+      "costSource": "runner-file",
       "wallMs": 1100,
       "status": "passed",
       "coverage": {
@@ -611,6 +765,11 @@
       "id": "tests/regression-1042.test.ts",
       "file": "tests/regression-1042.test.ts",
       "testName": null,
+      "identity": {
+        "file": "tests/regression-1042.test.ts",
+        "testName": null
+      },
+      "memberCount": 1,
       "tests": [
         {
           "fullName": "issue #1042: empty cart with a stale coupon does not crash",
@@ -619,6 +778,10 @@
         }
       ],
       "runtimeMs": 45,
+      "assertionMs": 45,
+      "fileMs": 45,
+      "optimizationMs": 45,
+      "costSource": "runner-file",
       "wallMs": 945,
       "status": "passed",
       "coverage": {
@@ -637,6 +800,11 @@
       "id": "tests/smoke.test.ts",
       "file": "tests/smoke.test.ts",
       "testName": null,
+      "identity": {
+        "file": "tests/smoke.test.ts",
+        "testName": null
+      },
+      "memberCount": 1,
       "tests": [
         {
           "fullName": "app boots",
@@ -645,6 +813,10 @@
         }
       ],
       "runtimeMs": 70,
+      "assertionMs": 70,
+      "fileMs": 70,
+      "optimizationMs": 70,
+      "costSource": "runner-file",
       "wallMs": 970,
       "status": "passed",
       "coverage": {

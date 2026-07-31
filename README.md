@@ -3,15 +3,14 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/JoseAntonioNuevo/test-suite-doctor/actions/workflows/ci.yml/badge.svg)](https://github.com/JoseAntonioNuevo/test-suite-doctor/actions/workflows/ci.yml)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
-[![Node >= 20](https://img.shields.io/badge/node-%3E%3D20-blue.svg)](package.json)
+[![Node >= 22](https://img.shields.io/badge/node-%3E%3D22-blue.svg)](package.json)
 [![Agent Skill](https://img.shields.io/badge/agent%20skill-SKILL.md-8A2BE2)](SKILL.md)
 
 An [agent skill](https://agentskills.io) + standalone CLI scripts that **audit,
 minimize, and heal bloated JavaScript/TypeScript test suites** (Vitest and
-Jest). Shrink 2,000 tests to ~200 while keeping ~97%+ of real coverage —
-measured with per-test coverage data and a greedy minimization algorithm, not
-gut feeling, and verified against coverage retention and (optionally) Stryker
-mutation score.
+Jest). Find a smaller coverage-retaining subset using per-test metrics and a
+deterministic greedy minimization algorithm, then verify it against the recorded
+baseline and, optionally, a Stryker mutation floor.
 
 > **Experimental:** test-suite-doctor is pre-1.0. Review every proposed drop,
 > keep the generated artifacts, and treat incomplete collection as a blocking
@@ -35,7 +34,10 @@ fault-detection power barely moves.
 Research shows that coverage-guided minimization can reduce suites, but the
 result varies materially by project and coverage retention is not the same as
 fault-detection retention. The figures in this README are therefore limited to
-the bundled synthetic demo. Deterministic scripts collect the metrics and
+the bundled synthetic demo. See Wong et al.
+([DOI](https://doi.org/10.1002/(SICI)1097-024X(19980410)28:4%3C347::AID-SPE145%3E3.0.CO;2-L))
+and Jehan & Wotawa ([DOI](https://doi.org/10.1109/ACCESS.2023.3289073)) for
+primary research with project-dependent results. Deterministic scripts collect the metrics and
 compute the plan; judgment is reserved for rescuing tests whose value coverage
 cannot see and writing good replacements for what is lost.
 
@@ -183,7 +185,7 @@ servers, no tool-specific commands.
 
 ### No agent at all (human / CI)
 
-The scripts are self-contained CLIs — Node ≥ 20, zero runtime dependencies
+The scripts are self-contained CLIs — Node ≥ 22, zero runtime dependencies
 (`npx tsx` fetches the TypeScript runner on demand):
 
 ```bash
@@ -207,10 +209,15 @@ Every script supports `--help`. The important knobs:
 | `--runner` | `auto` | `vitest` \| `jest` \| auto-detect |
 | `--granularity` | `file` | `file` (fast) or `test` (exact; one isolated run per test) |
 | `--filter` | — | Regex to scope measured test files |
+| `--runner-bin` | — | Explicit target-local runner JS executable |
+| `--runner-arg` | — | Extra runner argument (repeatable) |
 | `--concurrency` | `2` | Parallel isolated runs |
 | `--out` | `.test-doctor/report.json` | Report path |
 
 Requires a coverage provider (Vitest: `@vitest/coverage-v8`; Jest: built in).
+Runners are resolved from the target package/workspace and are never downloaded
+implicitly. A filter is applied before the baseline run, so filtered artifacts
+describe only matching files and are prominently marked as scoped.
 Per-test coverage is collected by running units in isolation — coverage
 instrumentation is process-wide, so this is the only runner-agnostic way to
 attribute lines to tests. That's why `file` granularity is the default: it
@@ -224,6 +231,7 @@ needs one run per test file, not one per test.
 | `--branch-floor` | — | Optional extra floor on covered branches |
 | `--target-count` | — | Aspirational kept-unit count (floor wins unless `--strict-count`) |
 | `--runtime-budget-ms` | — | Stop before kept runtime exceeds this |
+| `--cost-model` | `auto` | `auto`, assertion duration, or isolated wall time |
 | `--w-lines` / `--w-branches` | `1` / `1` | Weighted-sum weights |
 | `--keep <regex>` | — | Force-keep matching units (repeatable) |
 | `--keep-unmeasured` | off | Force-keep every incomplete unit and mark the plan unverified |
@@ -238,6 +246,9 @@ needs one run per test file, not one per test.
 | `--mutate <glob>` | — | Module globs to mutate (repeatable) |
 | `--mutation-floor` | `80` | Min mutation score % |
 | `--keep-scratch` | off | Preserve this invocation's unique scratch directory |
+| `--allow-legacy-baseline` | off | Permit v1 comparison and mark it untrusted |
+| `--allow-provenance-drift` | off | Permit source/config drift and mark it untrusted |
+| `--min-line-coverage` / `--min-branch-coverage` | — | Absolute current coverage floors |
 
 Exit codes: `0` usable/pass · `1` suite or quality failure/incomplete collection
 · `2` invalid usage, unavailable tooling, corrupt input, or an unevaluable run.
@@ -267,7 +278,8 @@ contracts and intent — is the design center of the whole skill.
 
 ## Artifacts
 
-All artifacts are versioned JSON under `.test-doctor/` (gitignore it):
+All artifacts are JSON Schema-backed version 2 documents under `.test-doctor/`
+(gitignore it):
 
 - `report.json` — per-unit covered lines/branches + runtime, plus the
   whole-suite baseline coverage map.
@@ -275,6 +287,11 @@ All artifacts are versioned JSON under `.test-doctor/` (gitignore it):
   (with residual coverage and the kept unit that covers each drop).
 - `verify.json` — verdict: pass/fail, retention numbers, worst-hit files,
   optional mutation score.
+
+Metrics v2 records scope, raw/estimated timings, runner identity, and SHA-256
+provenance for baseline-covered source and active test configuration. A v1
+report remains usable for minimization with a warning; trusted verification
+requires v2.
 
 ## Limitations
 

@@ -62,7 +62,7 @@ describe("greedy minimization", () => {
     const dropC = plan.drop.find((d) => d.id === "C");
     expect(dropC?.residualLines).toBe(0);
     expect(dropC?.bestOverlapWith).toBe("A");
-    expect(dropC?.reason).toBe("adds no line coverage beyond the kept set");
+    expect(dropC?.reason).toBe("adds no line or branch coverage beyond the kept set");
   });
 
   it("force-keeps units matching --keep patterns even when redundant", () => {
@@ -119,6 +119,51 @@ describe("greedy minimization", () => {
     expect(plan.summary.warnings.join(" ")).toContain("--runtime-budget-ms");
   });
 
+  it("skips an unaffordable top candidate and selects a lower-scoring feasible unit", () => {
+    const expensive = unit("expensive", { "src/a.ts": { lines: range(1, 10) } }, 60);
+    const feasible = unit("feasible", { "src/a.ts": { lines: range(1, 4) } }, 40);
+    const plan = minimize([expensive, feasible], baseline10, {
+      coverageFloor: 1,
+      runtimeBudgetMs: 50,
+    });
+    expect(plan.keep.map((entry) => entry.id)).toEqual(["feasible"]);
+    expect(plan.summary.keptRuntimeMs).toBe(40);
+  });
+
+  it("uses the selected optimization cost rather than assertion duration", () => {
+    const misleading = unit("misleading", { "src/a.ts": { lines: range(1, 10) } }, 1);
+    misleading.optimizationMs = 100;
+    const honest = unit("honest", { "src/a.ts": { lines: range(1, 10) } }, 10);
+    honest.optimizationMs = 10;
+    const plan = minimize([misleading, honest], baseline10, { coverageFloor: 1 });
+    expect(plan.keep.map((entry) => entry.id)).toEqual(["honest"]);
+    expect(plan.summary.keptRuntimeMs).toBe(10);
+  });
+
+  it("reports branch residuals and branch overlap for drop candidates", () => {
+    const baseline: CoverageMap = {
+      "src/a.ts": { lines: [1], branches: ["0.0", "0.1"] },
+    };
+    const kept = unit("kept", { "src/a.ts": { lines: [1], branches: ["0.0"] } }, 1);
+    const branchOnly = unit(
+      "branch-only",
+      { "src/a.ts": { lines: [1], branches: ["0.1"] } },
+      10,
+    );
+    const plan = minimize([kept, branchOnly], baseline, { coverageFloor: 1 });
+    const drop = plan.drop.find((entry) => entry.id === "branch-only");
+    expect(drop).toEqual(
+      expect.objectContaining({
+        residualLines: 0,
+        residualBranches: 1,
+        bestLineOverlapWith: "kept",
+        bestLineOverlapCount: 1,
+      }),
+    );
+    expect(drop?.reason).not.toContain("no line coverage");
+    expect(plan.keep[0].cumulativeBranchRetention).toBe(0.5);
+  });
+
   it("is deterministic: ties break by runtime then id, repeat runs agree", () => {
     const X = unit("X", { "src/a.ts": { lines: range(1, 10) } }, 10);
     const Y = unit("Y", { "src/a.ts": { lines: range(1, 10) } }, 10);
@@ -155,10 +200,16 @@ describe("greedy minimization", () => {
   it("renders a markdown plan with summary, keeps, and drops", () => {
     const A = unit("A", { "src/a.ts": { lines: range(1, 10) } }, 10);
     const C = unit("C", { "src/a.ts": { lines: range(1, 5) } }, 10);
-    const md = renderPlanMarkdown(minimize([A, C], baseline10, { coverageFloor: 0.97 }));
+    const plan = minimize([A, C], baseline10, { coverageFloor: 0.97 });
+    plan.scope = { mode: "filtered", filter: "unit", testFiles: ["A", "C"] };
+    plan.trusted = false;
+    const md = renderPlanMarkdown(plan);
     expect(md).toContain("# Test suite minimization plan");
     expect(md).toContain("| Units | 2 | **1** |");
     expect(md).toContain("`A`");
     expect(md).toContain("Drop candidates (1)");
+    expect(md).toContain("Scoped baseline");
+    expect(md).toContain("UNTRUSTED");
+    expect(md).toContain("Residual branches");
   });
 });

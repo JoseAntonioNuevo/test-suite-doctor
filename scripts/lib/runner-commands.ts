@@ -2,7 +2,7 @@ import { join, resolve } from "node:path";
 import type { Runner, TestCaseInfo } from "./types.ts";
 
 export interface RunSpec {
-  /** Arguments for `npx` (first element is the runner binary). */
+  /** Arguments passed to the resolved runner executable. */
   args: string[];
   /** Absolute path the runner writes its Jest-format JSON results to. */
   resultsFile: string;
@@ -22,6 +22,7 @@ export function buildRunSpec(
     scratchDir: string;
     label: string;
     testFile?: string;
+    testFiles?: string[];
     testNamePattern?: string;
     extraArgs?: string[];
   },
@@ -32,10 +33,10 @@ export function buildRunSpec(
   const extra = opts.extraArgs ?? [];
 
   if (runner === "vitest") {
+    const selectedFiles = opts.testFiles ?? (opts.testFile ? [opts.testFile] : []);
     const args = [
-      "vitest",
       "run",
-      ...(opts.testFile ? [opts.testFile] : []),
+      ...selectedFiles,
       "--coverage",
       "--coverage.reporter=json",
       `--coverage.reportsDirectory=${coverageDir}`,
@@ -48,9 +49,9 @@ export function buildRunSpec(
     return { args, resultsFile, coverageDir };
   }
 
+  const selectedFiles = opts.testFiles ?? (opts.testFile ? [opts.testFile] : []);
   const args = [
-    "jest",
-    ...(opts.testFile ? ["--runTestsByPath", opts.testFile] : []),
+    ...(selectedFiles.length > 0 ? ["--runTestsByPath", ...selectedFiles] : []),
     "--coverage",
     "--coverageReporters=json",
     `--coverageDirectory=${coverageDir}`,
@@ -79,6 +80,8 @@ export interface JestResultsFile {
   testResults?: {
     name?: string;
     status?: string;
+    startTime?: number;
+    endTime?: number;
     message?: string;
     assertionResults?: {
       fullName?: string;
@@ -98,13 +101,24 @@ export interface ParsedResults {
   failedTests: number;
   failedSuites: number;
   runtimeErrorSuites: number;
+  fileDurations: Map<string, number>;
 }
 
 export function parseResultsFile(raw: JestResultsFile): ParsedResults {
   const tests: TestCaseInfo[] = [];
   const files: string[] = [];
+  const fileDurations = new Map<string, number>();
   for (const fileResult of raw.testResults ?? []) {
-    if (fileResult.name) files.push(fileResult.name);
+    if (fileResult.name) {
+      files.push(fileResult.name);
+      if (
+        typeof fileResult.startTime === "number" &&
+        typeof fileResult.endTime === "number" &&
+        fileResult.endTime >= fileResult.startTime
+      ) {
+        fileDurations.set(fileResult.name, fileResult.endTime - fileResult.startTime);
+      }
+    }
     for (const t of fileResult.assertionResults ?? []) {
       tests.push({
         fullName: t.fullName || t.title || "(unnamed test)",
@@ -124,6 +138,7 @@ export function parseResultsFile(raw: JestResultsFile): ParsedResults {
       raw.numFailedTestSuites ??
       (raw.testResults ?? []).filter((result) => result.status === "failed").length,
     runtimeErrorSuites: raw.numRuntimeErrorTestSuites ?? 0,
+    fileDurations,
   };
 }
 

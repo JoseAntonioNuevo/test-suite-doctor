@@ -1,6 +1,5 @@
 import {
   existsSync,
-  chmodSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -11,6 +10,8 @@ import {
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { afterEach, describe, expect, it } from "vitest";
+import { captureProvenance } from "../scripts/lib/provenance.ts";
+import { resolvePackageVersion, resolveTargetBinary } from "../scripts/lib/runner-resolution.ts";
 
 const root = resolve(import.meta.dirname, "..");
 const created: string[] = [];
@@ -42,6 +43,54 @@ function baseline(dir: string): string {
       baseline: {
         totalTests: 1,
         totalRuntimeMs: 1,
+        coveredLines: 1,
+        totalLines: 1,
+        coveredBranches: 0,
+        totalBranches: 0,
+      },
+      baselineCoverage: { "src/a.ts": { lines: [1], branches: [] } },
+      collectionErrors: [],
+      units: [],
+    }),
+  );
+  return path;
+}
+
+function baselineV2(dir: string): string {
+  const runner = resolveTargetBinary(dir, "vitest");
+  const coverageProvider = {
+    name: "@vitest/coverage-v8",
+    version: resolvePackageVersion(dir, "@vitest/coverage-v8"),
+  };
+  const path = join(dir, "report-v2.json");
+  writeFileSync(
+    path,
+    JSON.stringify({
+      version: 2,
+      tool: "test-suite-doctor",
+      toolVersion: "0.2.0",
+      runId: "test-baseline",
+      createdAt: new Date(0).toISOString(),
+      cwd: dir,
+      runner: "vitest",
+      granularity: "file",
+      options: {},
+      scope: { mode: "full", filter: null, testFiles: ["a.test.ts"] },
+      environment: {
+        node: process.version,
+        platform: process.platform,
+        arch: process.arch,
+        runner: { name: "vitest", version: runner.version, executable: runner.executable },
+        coverageProvider,
+      },
+      provenance: captureProvenance(dir, ["src/a.ts"], {
+        runner: { name: "vitest", version: runner.version, executable: runner.executable },
+        coverageProvider,
+      }),
+      baseline: {
+        totalTests: 1,
+        totalRuntimeMs: 1,
+        wallMs: 1,
         coveredLines: 1,
         totalLines: 1,
         coveredBranches: 0,
@@ -95,7 +144,7 @@ describe("verify integration safety", () => {
       ].join("\n"),
     );
 
-    const result = verify(dir, baseline(dir));
+    const result = verify(dir, baseline(dir), ["--allow-legacy-baseline"]);
     expect(result.status).toBe(1);
     expect(JSON.parse(readFileSync(join(dir, "verify.json"), "utf8"))).toEqual(
       expect.objectContaining({ pass: false }),
@@ -137,15 +186,13 @@ describe("verify integration safety", () => {
     );
     writeFileSync(join(dir, "verify.json"), JSON.stringify({ pass: true }));
 
-    const result = verify(dir, baseline(dir));
+    const result = verify(dir, baseline(dir), ["--allow-legacy-baseline"]);
     expect(result.status).toBe(2);
     expect(existsSync(join(dir, "verify.json"))).toBe(false);
     expect(result.stderr).toMatch(/runner|config|results/i);
   });
 
-  it.skipIf(process.platform === "win32")(
-    "rejects a stale Stryker report when the current mutation process fails",
-    () => {
+  it("rejects a stale Stryker report when the current mutation process fails", () => {
       const dir = fixture();
       writeFileSync(
         join(dir, "a.test.ts"),
@@ -159,26 +206,50 @@ describe("verify integration safety", () => {
       const stale = { files: { "src/a.ts": { mutants: [{ status: "Killed" }] } } };
       writeFileSync(mutationReport, JSON.stringify(stale));
 
-      const realNpx = spawnSync("which", ["npx"], { encoding: "utf8" }).stdout.trim();
-      const fakeBin = join(dir, "fake-bin");
-      mkdirSync(fakeBin);
-      const fakeNpx = join(fakeBin, "npx");
-      writeFileSync(
-        fakeNpx,
-        `#!/bin/sh\nif [ "$1" = "stryker" ]; then exit 7; fi\nexec "${realNpx}" "$@"\n`,
-      );
-      chmodSync(fakeNpx, 0o755);
+      const fakeStryker = join(dir, "fake-stryker.mjs");
+      writeFileSync(fakeStryker, "process.exit(7);\n");
 
       const result = verify(
         dir,
         baseline(dir),
-        ["--mutation", "--mutate", "src/a.ts", "--mutation-report", mutationReport],
-        { PATH: `${fakeBin}:${process.env.PATH}` },
+        [
+          "--mutation",
+          "--mutate",
+          "src/a.ts",
+          "--mutation-report",
+          mutationReport,
+          "--stryker-bin",
+          fakeStryker,
+          "--allow-legacy-baseline",
+        ],
       );
 
       expect(result.status).toBe(2);
       expect(JSON.parse(readFileSync(mutationReport, "utf8"))).toEqual(stale);
       expect(result.stderr).toMatch(/Stryker.*exit|mutation.*process/i);
-    },
-  );
+  });
+
+  it("rejects source drift by default and marks an explicit override untrusted", () => {
+    const dir = fixture();
+    writeFileSync(
+      join(dir, "a.test.ts"),
+      [
+        'import { expect, it } from "vitest";',
+        'import { value } from "./src/a.ts";',
+        'it("passes", () => expect(value).toBe(2));',
+      ].join("\n"),
+    );
+    const report = baselineV2(dir);
+    writeFileSync(join(dir, "src/a.ts"), "export const value = 2;\n");
+
+    const rejected = verify(dir, report);
+    expect(rejected.status).toBe(2);
+    expect(rejected.stderr).toMatch(/provenance|source.*changed/i);
+
+    const allowed = verify(dir, report, ["--allow-provenance-drift"]);
+    expect(allowed.status).toBe(0);
+    expect(JSON.parse(readFileSync(join(dir, "verify.json"), "utf8"))).toEqual(
+      expect.objectContaining({ trusted: false, provenance: expect.objectContaining({ mismatches: expect.any(Array) }) }),
+    );
+  });
 });

@@ -45,4 +45,20 @@ describe("runner outcome validation", () => {
       expect.objectContaining({ green: true, kind: "passed" }),
     );
   });
+
+  it("records runner-reported file duration separately from assertion time", () => {
+    const results = parseResultsFile({
+      success: true,
+      numTotalTests: 1,
+      testResults: [
+        {
+          name: "/repo/a.test.ts",
+          startTime: 100,
+          endTime: 140,
+          assertionResults: [{ fullName: "passes", status: "passed", duration: 4 }],
+        },
+      ],
+    });
+    expect(results.fileDurations.get("/repo/a.test.ts")).toBe(40);
+  });
 });
