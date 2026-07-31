@@ -5,6 +5,7 @@ import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 
 const root = resolve(import.meta.dirname, "..");
+const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 
 describe("npm package smoke", () => {
   it("packs only the public skill/CLI surface and runs in a clean consumer", () => {
@@ -20,7 +21,7 @@ describe("npm package smoke", () => {
         expect(listed.status, listed.stderr).toBe(0);
         paths = listed.stdout.split(/\r?\n/).map((path) => path.replace(/^package\//, ""));
       } else {
-        const packed = spawnSync("npm", ["pack", "--json", "--pack-destination", output], {
+        const packed = spawnSync(npmCommand, ["pack", "--json", "--pack-destination", output], {
           cwd: root,
           encoding: "utf8",
         });
@@ -36,15 +37,16 @@ describe("npm package smoke", () => {
 
       writeFileSync(join(consumer, "package.json"), JSON.stringify({ private: true }));
       const installed = spawnSync(
-        "npm",
+        npmCommand,
         ["install", "--ignore-scripts", "--omit=dev", "--offline", tarball],
         { cwd: consumer, encoding: "utf8" },
       );
       expect(installed.status, installed.stderr).toBe(0);
-      const cli = process.platform === "win32"
-        ? join(consumer, "node_modules/.bin/test-suite-doctor.cmd")
-        : join(consumer, "node_modules/.bin/test-suite-doctor");
-      const version = spawnSync(cli, ["--version"], { cwd: consumer, encoding: "utf8" });
+      const version = spawnSync(
+        npmCommand,
+        ["exec", "--offline", "--", "test-suite-doctor", "--version"],
+        { cwd: consumer, encoding: "utf8" },
+      );
       expect(version.status, version.stderr).toBe(0);
       expect(version.stdout.trim()).toBe("0.3.0");
       expect(basename(tarball)).toMatch(/\.tgz$/);

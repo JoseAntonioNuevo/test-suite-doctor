@@ -4,6 +4,7 @@ import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 
 const root = resolve(import.meta.dirname, "..");
+const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 
 function sourceCli(args: string[]) {
   return spawnSync(
@@ -31,7 +32,7 @@ describe("unified CLI", () => {
   });
 
   it("builds one committed dependency-free ESM executable", () => {
-    const result = spawnSync("npm", ["run", "build"], { cwd: root, encoding: "utf8" });
+    const result = spawnSync(npmCommand, ["run", "build"], { cwd: root, encoding: "utf8" });
     expect(result.status, result.stderr).toBe(0);
     const output = resolve(root, "dist/cli.mjs");
     expect(existsSync(output)).toBe(true);
