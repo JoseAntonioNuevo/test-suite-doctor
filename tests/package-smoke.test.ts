@@ -3,9 +3,9 @@ import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
+import { spawnNpm } from "./helpers/npm.ts";
 
 const root = resolve(import.meta.dirname, "..");
-const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 
 describe("npm package smoke", () => {
   it("packs only the public skill/CLI surface and runs in a clean consumer", () => {
@@ -21,10 +21,7 @@ describe("npm package smoke", () => {
         expect(listed.status, listed.stderr).toBe(0);
         paths = listed.stdout.split(/\r?\n/).map((path) => path.replace(/^package\//, ""));
       } else {
-        const packed = spawnSync(npmCommand, ["pack", "--json", "--pack-destination", output], {
-          cwd: root,
-          encoding: "utf8",
-        });
+        const packed = spawnNpm(["pack", "--json", "--pack-destination", output], root);
         expect(packed.status, packed.stderr).toBe(0);
         const metadata = JSON.parse(packed.stdout)[0];
         paths = metadata.files.map((file: { path: string }) => file.path);
@@ -36,16 +33,14 @@ describe("npm package smoke", () => {
       expect(paths.some((path: string) => /^(tests|tools|scripts|examples)\//.test(path))).toBe(false);
 
       writeFileSync(join(consumer, "package.json"), JSON.stringify({ private: true }));
-      const installed = spawnSync(
-        npmCommand,
+      const installed = spawnNpm(
         ["install", "--ignore-scripts", "--omit=dev", "--offline", tarball],
-        { cwd: consumer, encoding: "utf8" },
+        consumer,
       );
       expect(installed.status, installed.stderr).toBe(0);
-      const version = spawnSync(
-        npmCommand,
+      const version = spawnNpm(
         ["exec", "--offline", "--", "test-suite-doctor", "--version"],
-        { cwd: consumer, encoding: "utf8" },
+        consumer,
       );
       expect(version.status, version.stderr).toBe(0);
       expect(version.stdout.trim()).toBe("0.3.0");
