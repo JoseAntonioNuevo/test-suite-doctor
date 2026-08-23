@@ -1,13 +1,10 @@
-# Agent instructions — test-suite-doctor
+# test-suite-doctor
 
-This repository ships both an **agent skill** (`SKILL.md` + `references/`) and
-a compiled CLI (`dist/cli.mjs`).
+Public agent skill (`SKILL.md`) plus compiled CLI (`dist/cli.mjs`). No production services. No OpenViking tenant — do not write this work under `hermes` or any other account.
 
-## If you were pointed here to work on a test suite
+## Using it on a suite
 
-Read `SKILL.md` and follow its workflow exactly. The one non-negotiable rule:
-run collection and minimization before proposing any test deletion — never
-prune tests by gut feeling. Use the committed, dependency-free CLI:
+Read `SKILL.md`. Collect and minimize before proposing deletions.
 
 ```bash
 node dist/cli.mjs collect --help
@@ -15,39 +12,17 @@ node dist/cli.mjs minimize --help
 node dist/cli.mjs verify --help
 ```
 
-## If you are developing this repository itself
+## Developing this repo
 
-- pnpm is the repository's only package-manager CLI. Use the exact version in
-  `packageManager` and keep `pnpm-lock.yaml` authoritative.
-- Quality gate: `pnpm install --frozen-lockfile`, `pnpm run typecheck`,
-  `pnpm test`, then `pnpm run build && git diff --exit-code -- dist/cli.mjs`.
-- Implement every production behavior test-first and observe the regression
-  fail before changing implementation.
-- `scripts/` may import **Node.js builtins only**. The compiled CLI must have no
-  production dependencies; development tooling belongs in `devDependencies`.
-- Pure logic goes in `scripts/lib/` with tests in `tests/`; the three
-  top-level scripts are thin CLI wrappers.
-- Preserve the documented exit codes, fail-closed artifact behavior, and v2
-  schema/provenance contract.
-- Resolve Vitest, Jest, and Stryker from the target project. Never download or
-  invoke a target runner implicitly through a package-manager executor.
-- Run the Windows package/runner tests when changing process execution, path
-  normalization, packaging, or runner discovery.
-- Keep `SKILL.md` tool-agnostic (standard `name`/`description` frontmatter
-  only) and lean — detail belongs in `references/` or `--help` output.
-- The demo artifacts in `examples/` are generated: edit
-  `examples/make-demo.ts`, then regenerate `demo-report.json` and the plan
-  files with the commands in its header comment.
-- No production services deploy from this repository.
-- External benchmark targets retain their pinned upstream package manager and
-  lockfile; that reproducibility requirement is the only package-manager
-  exception.
+pnpm only (`packageManager` + `pnpm-lock.yaml`).
 
-## Eve Engineering and OpenViking
+```bash
+pnpm install --frozen-lockfile
+pnpm run typecheck && pnpm test
+pnpm run build && git diff --exit-code -- dist/cli.mjs
+```
 
-**OpenViking account: none.** This repo has no tenant. Do **not** write to
-`hermes` or any other OpenViking account. Fail closed.
-
-**Eve** (review-only local CI; hosted GHA is off) never edits this repo.
-Finish implementing → `.githooks/eve-ci` (VPS) or `eve_ci` MCP → fix yourself
-→ re-run. Do not ask Eve to patch or open a PR.
+- `scripts/` import Node builtins only. Compiled CLI has no production deps.
+- Resolve Vitest/Jest/Stryker from the **target** project; never download a runner via a package-manager executor.
+- Preserve v2 schema/provenance and fail-closed artifacts.
+- Demo files are generated from `examples/make-demo.ts`.
