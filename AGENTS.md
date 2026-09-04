@@ -1,6 +1,6 @@
 # test-suite-doctor
 
-Public agent skill (`SKILL.md`) plus compiled CLI (`dist/cli.mjs`). No production services. No OpenViking tenant — do not write this work under `hermes` or any other account.
+Public agent skill and compiled CLI (`dist/cli.mjs`), with no production services or OpenViking tenant. Do not write its memory under `hermes` or another account; continue from repository evidence.
 
 ## Using it on a suite
 
